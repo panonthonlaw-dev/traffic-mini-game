@@ -27,7 +27,8 @@ def init_drive():
 # --- 2. ฟังก์ชันจัดการระบบ (Logic) ---
 
 def format_email(user_id):
-    return f"{user_id.lower()}@traffic.game"
+    """เปลี่ยนเป็น .com เพื่อให้ Supabase ยอมรับได้ง่ายขึ้น"""
+    return f"{user_id.lower()}@traffic.com" # เปลี่ยนจาก .game เป็น .com
 
 def is_valid_userid(user_id):
     if len(user_id) <= 6:
