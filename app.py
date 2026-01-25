@@ -116,9 +116,14 @@ st.markdown("""
 
 # --- 3. การแสดงผล UI ---
 
-# Header ด้านบน
+# เริ่มครอบ
+st.markdown('<div class="center-box">', unsafe_allow_html=True)
+
 st.markdown('<p class="main-logo">traffic game</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-logo">เล่นเปลี่ยนรอด</p>', unsafe_allow_html=True)
+
+# ปิดท้ายการครอบ
+st.markdown('</div>', unsafe_allow_html=True)
 
 # กล่องขาว
 with st.container():
