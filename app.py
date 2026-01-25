@@ -116,14 +116,11 @@ st.markdown("""
 
 # --- 3. การแสดงผล UI ---
 
-# เริ่มครอบ
-st.markdown('<div class="center-box">', unsafe_allow_html=True)
+# 1. วางตัวเปิดไว้บนสุดของ UI
+st.markdown('<div class="main-center-wrapper">', unsafe_allow_html=True)
 
 st.markdown('<p class="main-logo">traffic game</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-logo">เล่นเปลี่ยนรอด</p>', unsafe_allow_html=True)
-
-# ปิดท้ายการครอบ
-st.markdown('</div>', unsafe_allow_html=True)
 
 # กล่องขาว
 with st.container():
@@ -151,5 +148,5 @@ with st.container():
         st.success("ไปหน้าสมัครสมาชิก")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Footer
-st.markdown("<p style='text-align:center; color:#606770; font-size:12px; margin-top:30px;'>Traffic Mini Game © 2026</p>", unsafe_allow_html=True)
+# 2. วางตัวปิดไว้ท้ายสุดของ UI
+st.markdown('</div>', unsafe_allow_html=True)
