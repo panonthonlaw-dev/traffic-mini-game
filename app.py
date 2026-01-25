@@ -111,6 +111,13 @@ st.markdown("""
             margin: 0 auto !important;
             display: block !important;
         }
+.all-center-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            width: 100%;
+        }
     </style>
 """, unsafe_allow_html=True)
 
