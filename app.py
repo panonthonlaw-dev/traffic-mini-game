@@ -2,7 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client
 
-# --- 1. เชื่อมต่อ Supabase (ต้องมี URL และ KEY ใน Secrets) ---
+# --- 1. เชื่อมต่อ Supabase ---
 try:
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
@@ -11,9 +11,8 @@ except Exception as e:
     st.error("❌ เชื่อมต่อ Supabase ไม่ได้: ตรวจสอบ Secrets (URL/KEY)")
     st.stop()
 
-# --- 2. ระบบจัดการข้อมูล (ต้องรันก่อนแสดง UI เพื่อดักรับค่าจากปุ่ม) ---
+# --- 2. ระบบจัดการข้อมูล (ดักรับค่าจาก URL) ---
 def sync_database():
-    # ใช้ st.query_params เพื่อรับค่าที่ JavaScript ส่งมาทาง URL
     params = st.query_params
     
     if "reg_user" in params:
@@ -23,13 +22,13 @@ def sync_database():
             u_phone = params.get("reg_phone")
             u_pass = params.get("reg_pass")
 
-            # 1. เช็คชื่อซ้ำใน Supabase
+            # เช็คชื่อซ้ำ
             res = supabase.table("users").select("username").eq("username", u_user).execute()
             
             if res.data:
                 st.warning(f"⚠️ ชื่อผู้ใช้ '{u_user}' มีคนใช้แล้วครับ!")
             else:
-                # 2. บันทึกข้อมูลลงตาราง users
+                # บันทึกข้อมูล
                 supabase.table("users").insert({
                     "fullname": u_name,
                     "username": u_user,
@@ -37,19 +36,18 @@ def sync_database():
                     "password": u_pass
                 }).execute()
                 
-                st.success(f"✅ สมัครสำเร็จ! บันทึกข้อมูลคุณ {u_name} เรียบร้อย")
+                st.success(f"✅ สมัครสำเร็จ! บันทึกข้อมูลเรียบร้อย")
                 st.balloons()
 
-            # 3. ล้าง URL ทันทีเพื่อป้องกันการบันทึกซ้ำ
+            # ล้าง URL
             st.query_params.clear()
             
         except Exception as e:
-            st.error(f"⚠️ เกิดข้อผิดพลาดที่ Supabase: {str(e)}")
+            st.error(f"⚠️ Error: {str(e)}")
 
-# รันระบบดักข้อมูล
 sync_database()
 
-# --- 3. UI HTML + CSS + JS (กึ่งกลาง, ไร้ลูกตา, ชุดที่พี่ใช้งานได้ดี) ---
+# --- 3. UI HTML + CSS + JS ---
 full_ui = f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap');
@@ -62,9 +60,8 @@ full_ui = f"""
     input {{ width: 100%; padding: 14px; margin-bottom: 12px; border: 1px solid #dddfe2; border-radius: 8px; font-size: 16px; box-sizing: border-box; text-align: center; outline: none; }}
     input:focus {{ border-color: #1877f2; }}
     input[type="password"]::-ms-reveal {{ display: none; }}
-    .btn {{ width: 100%; border: none; padding: 14px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 5px; transition: 0.2s; }}
+    .btn {{ width: 100%; border: none; padding: 14px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 5px; }}
     .btn-blue {{ background-color: #1877f2; color: white; }}
-    .btn-blue:hover {{ background-color: #166fe5; }}
     .btn-green {{ background-color: #42b72a; color: white; width: auto; padding: 12px 30px; }}
     .link-text {{ display: block; color: #1877f2; font-size: 14px; margin: 15px 0; text-decoration: none; cursor: pointer; }}
     .divider {{ border-bottom: 1px solid #dadde1; margin: 20px 0; }}
@@ -84,7 +81,7 @@ full_ui = f"""
     </div>
 
     <div class="card" id="signup-box">
-        <h2 style="margin:0 0 20px 0; color:#1c1e21;">สมัครสมาชิก</h2>
+        <h2 style="margin:0 0 20px 0;">สมัครสมาชิก</h2>
         <input type="text" id="reg_fullname" placeholder="ชื่อ-นามสกุล">
         <input type="text" id="reg_user" placeholder="ชื่อผู้ใช้ (อังกฤษ/เลข 6-12 ตัว)">
         <input type="text" id="reg_phone" placeholder="เบอร์โทรศัพท์ (10 หลัก)" maxlength="10">
@@ -114,24 +111,32 @@ full_ui = f"""
         const pass = document.getElementById('reg_pass').value;
         const confirm = document.getElementById('reg_confirm').value;
 
-        // Validation พื้นฐาน
+        // Validation
         if (!name || user.length < 6 || phone.length !== 10 || pass.length < 6) {{
-            alert('กรุณากรอกข้อมูลให้ครบถ้วนตามเงื่อนไข');
-            return;
+            alert('กรุณากรอกข้อมูลให้ครบถ้วน'); return;
         }}
         if (pass !== confirm) {{
-            alert('รหัสผ่านไม่ตรงกัน');
-            return;
+            alert('รหัสผ่านไม่ตรงกัน'); return;
         }}
 
-        // วิธีแก้ปุ่มนิ่ง: บังคับเปลี่ยน URL หน้าหลัก (window.parent)
-        const currentUrl = new URL(window.parent.location.href);
-        currentUrl.searchParams.set('reg_name', name);
-        currentUrl.searchParams.set('reg_user', user);
-        currentUrl.searchParams.set('reg_phone', phone);
-        currentUrl.searchParams.set('reg_pass', pass);
+        // --- แก้ไขจุดที่ทำให้ปุ่มนิ่ง ---
+        // ใช้ document.referrer เพื่อหา URL หน้าหลัก แทน window.parent.location.href ที่มักจะติดสิทธิ์
+        let baseUrl = document.referrer; 
+        if (!baseUrl) {{
+            // ถ้าหาไม่เจอ ให้ลองใช้ window.parent (เผื่อรัน local) แต่ใส่ try-catch กันตาย
+            try {{ baseUrl = window.parent.location.href.split('?')[0]; }} 
+            catch(e) {{ baseUrl = window.location.href; }} // แย่สุดคือใช้ URL ตัวเอง (อาจจะไม่เวิร์คบน Cloud แต่ดีกว่านิ่ง)
+        }}
         
-        window.parent.location.href = currentUrl.toString();
+        // สร้าง URL ใหม่ที่มีพารามิเตอร์
+        const url = new URL(baseUrl);
+        url.searchParams.set('reg_name', name);
+        url.searchParams.set('reg_user', user);
+        url.searchParams.set('reg_phone', phone);
+        url.searchParams.set('reg_pass', pass);
+        
+        // สั่งเปลี่ยนหน้าหลัก (Write-only)
+        window.top.location.href = url.toString();
     }}
 
     document.getElementById('reg_phone').oninput = function() {{
