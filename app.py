@@ -1,70 +1,129 @@
 import streamlit as st
-import gspread
-from google.oauth2.service_account import Credentials
+import streamlit.components.v1 as components
+from supabase import create_client
 
-# --- 1. เชื่อมต่อ Google Sheets (ใช้ค่าจาก Secrets) ---
-scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
-client = gspread.authorize(creds)
-# ใส่ ID ของ Google Sheets ของพี่ตรงนี้
-sheet = client.open_by_key("ใส่_ID_ของ_แผ่นงาน_พี่ตรงนี้").sheet1
+# --- 1. เชื่อมต่อ Supabase (ใช้ค่าจาก Secrets) ---
+try:
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    supabase = create_client(url, key)
+except Exception as e:
+    st.error("❌ เชื่อมต่อ Supabase ไม่ได้: ตรวจสอบ Secrets (URL/KEY)")
+    st.stop()
 
-# --- 2. CSS จัดกึ่งกลาง (แบบครอบคลุม ไม่ต้องใช้ HTML) ---
-st.markdown("""
-    <style>
-    .block-container { max-width: 400px; padding-top: 2rem; }
-    .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; }
-    input { text-align: center; }
-    </style>
-""", unsafe_allow_html=True)
+# --- 2. ระบบจัดการข้อมูล (ดักรับค่าจาก URL ก่อนแสดงหน้าเว็บ) ---
+def sync_database():
+    params = st.query_params
+    if "reg_user" in params:
+        try:
+            u_name = params.get("reg_name")
+            u_user = params.get("reg_user").strip()
+            u_phone = params.get("reg_phone")
+            u_pass = params.get("reg_pass")
 
-# --- 3. ระบบสลับหน้า (Login / Signup) ---
-if 'page' not in st.session_state:
-    st.session_state.page = 'login'
-
-# --- หน้าสมัครสมาชิก ---
-if st.session_state.page == 'signup':
-    st.markdown("<h1 style='text-align:center; color:#1877f2;'>ลงทะเบียน</h1>", unsafe_allow_html=True)
-    
-    reg_name = st.text_input("ชื่อ-นามสกุล", placeholder="ภาษาไทยหรืออังกฤษ")
-    reg_user = st.text_input("ชื่อผู้ใช้", placeholder="อังกฤษ/ตัวเลข 6-12 ตัว")
-    reg_phone = st.text_input("เบอร์โทรศัพท์", placeholder="ตัวเลข 10 หลัก", max_chars=10)
-    reg_pass = st.text_input("รหัสผ่าน", type="password", placeholder="6-13 ตัว")
-    reg_confirm = st.text_input("ยืนยันรหัสผ่าน", type="password")
-
-    if st.button("ลงทะเบียน"):
-        # เช็คเงื่อนไขแบบง่ายๆ
-        if not reg_name or len(reg_user) < 6 or len(reg_phone) != 10 or reg_pass != reg_confirm:
-            st.error("❌ กรุณากรอกข้อมูลให้ถูกต้องตามเงื่อนไข")
-        else:
-            # เช็คชื่อซ้ำแบบบ้านๆ
-            all_users = sheet.col_values(2) # สมมติชื่อผู้ใช้อยู่คอลัมน์ที่ 2
-            if reg_user.strip() in all_users:
-                st.error("❌ ชื่อผู้ใช้นี้มีคนใช้แล้ว!")
+            # เช็คชื่อซ้ำ
+            res = supabase.table("users").select("username").eq("username", u_user).execute()
+            if res.data:
+                st.warning(f"⚠️ ชื่อผู้ใช้ '{u_user}' มีคนใช้แล้ว!")
             else:
-                # --- บันทึกข้อมูล: บรรทัดเดียวจบ! ---
-                sheet.append_row([reg_name, reg_user.strip(), reg_phone, reg_pass])
-                
-                st.success("✅ บันทึกสำเร็จ!")
+                # บันทึกจริง
+                supabase.table("users").insert({
+                    "fullname": u_name,
+                    "username": u_user,
+                    "phone": u_phone,
+                    "password": u_pass
+                }).execute()
+                st.success(f"✅ สมัครสำเร็จ! ข้อมูลบันทึกเรียบร้อย")
                 st.balloons()
-                st.session_state.page = 'login' # สมัครเสร็จเด้งกลับหน้าแรก
-                st.rerun()
 
-    if st.button("ยกเลิก"):
-        st.session_state.page = 'login'
-        st.rerun()
+            st.query_params.clear() # ล้าง URL ป้องกันบันทึกซ้ำ
+        except Exception as e:
+            st.error(f"⚠️ Error: {str(e)}")
 
-# --- หน้าแรก (Login) ---
-else:
-    st.markdown("<h1 style='text-align:center; color:#1877f2;'>traffic game</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align:center;'>เล่นเปลี่ยนรอด</p>", unsafe_allow_html=True)
+sync_database()
+
+# --- 3. UI HTML + CSS + JS (ชุดที่พี่บอกว่าดีที่สุด) ---
+full_ui = f"""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap');
+    body {{ margin: 0; background-color: #f0f2f5; font-family: 'Kanit', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }}
+    .container {{ text-align: center; width: 100%; max-width: 400px; padding: 20px; }}
+    .main-logo {{ color: #1877f2; font-size: 50px; font-weight: bold; margin-bottom: 5px; letter-spacing: -2px; }}
+    .sub-logo {{ color: #000000; font-size: 22px; font-weight: 500; margin-bottom: 25px; }}
+    .card {{ background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border: 1px solid #dddfe2; }}
+    #signup-box, #forgot-box {{ display: none; }}
+    input {{ width: 100%; padding: 14px; margin-bottom: 12px; border: 1px solid #dddfe2; border-radius: 8px; font-size: 16px; box-sizing: border-box; text-align: center; outline: none; }}
+    input:focus {{ border-color: #1877f2; }}
+    input[type="password"]::-ms-reveal {{ display: none; }}
+    .btn {{ width: 100%; border: none; padding: 14px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 5px; }}
+    .btn-blue {{ background-color: #1877f2; color: white; }}
+    .btn-green {{ background-color: #42b72a; color: white; width: auto; padding: 12px 30px; }}
+    .link-text {{ display: block; color: #1877f2; font-size: 14px; margin: 15px 0; text-decoration: none; cursor: pointer; }}
+    .divider {{ border-bottom: 1px solid #dadde1; margin: 20px 0; }}
+</style>
+
+<div class="container">
+    <div class="main-logo">traffic game</div>
+    <div class="sub-logo">เล่นเปลี่ยนรอด</div>
     
-    st.text_input("ชื่อผู้ใช้", key="l_user")
-    st.text_input("รหัสผ่าน", type="password", key="l_pass")
-    
-    if st.button("เข้าสู่ระบบ"):
-        st.info("ระบบกำลังตรวจสอบ...")
-        
-    if st.button("สร้างบัญชีใหม่"):
-        st.session_state.page = 'signup'
-        st.rerun()
+    <div class="card" id="login-box">
+        <input type="text" id="login_user" placeholder="ชื่อผู้ใช้">
+        <input type="password" id="login_pass" placeholder="รหัสผ่าน">
+        <button class="btn btn-blue">เข้าสู่ระบบ</button>
+        <div class="link-text" onclick="showForgot()">ลืมรหัสผ่านใช่หรือไม่?</div>
+        <div class="divider"></div>
+        <button class="btn btn-green" onclick="showSignup()">สร้างบัญชีใหม่</button>
+    </div>
+
+    <div class="card" id="signup-box">
+        <h2 style="margin:0 0 20px 0;">สมัครสมาชิก</h2>
+        <input type="text" id="reg_fullname" placeholder="ชื่อ-นามสกุล">
+        <input type="text" id="reg_user" placeholder="ชื่อผู้ใช้ (6-12 ตัว)">
+        <input type="text" id="reg_phone" placeholder="เบอร์โทรศัพท์ (10 หลัก)" maxlength="10">
+        <input type="password" id="reg_pass" placeholder="รหัสผ่าน (6-13 ตัว)">
+        <input type="password" id="reg_confirm" placeholder="ยืนยันรหัสผ่าน">
+        <button class="btn btn-blue" onclick="submitData()">ลงทะเบียน</button>
+        <div class="link-text" onclick="showLogin()">กลับไปหน้าแรก</div>
+    </div>
+
+    <div class="card" id="forgot-box">
+        <h2 style="margin:0 0 20px 0;">ลืมรหัสผ่าน</h2>
+        <input type="text" id="find_user" placeholder="ชื่อผู้ใช้">
+        <button class="btn btn-blue">ตรวจสอบ</button>
+        <div class="link-text" onclick="showLogin()">กลับไปหน้าแรก</div>
+    </div>
+</div>
+
+<script>
+    function showSignup() {{ document.getElementById('login-box').style.display='none'; document.getElementById('signup-box').style.display='block'; }}
+    function showLogin() {{ document.getElementById('signup-box').style.display='none'; document.getElementById('forgot-box').style.display='none'; document.getElementById('login-box').style.display='block'; }}
+    function showForgot() {{ document.getElementById('login-box').style.display='none'; document.getElementById('forgot-box').style.display='block'; }}
+
+    function submitData() {{
+        const name = document.getElementById('reg_fullname').value;
+        const user = document.getElementById('reg_user').value.trim();
+        const phone = document.getElementById('reg_phone').value;
+        const pass = document.getElementById('reg_pass').value;
+        const confirm = document.getElementById('reg_confirm').value;
+
+        if (!name || user.length < 6 || phone.length !== 10 || pass !== confirm) {{
+            alert('กรุณากรอกข้อมูลให้ครบและรหัสผ่านต้องตรงกัน');
+            return;
+        }}
+
+        // ส่งค่าผ่าน URL กลับไปที่ Python (วิธีที่พี่บอกว่าบันทึกได้ดี)
+        const url = new URL(window.parent.location.href);
+        url.searchParams.set('reg_name', name);
+        url.searchParams.set('reg_user', user);
+        url.searchParams.set('reg_phone', phone);
+        url.searchParams.set('reg_pass', pass);
+        window.parent.location.href = url.href;
+    }}
+
+    document.getElementById('reg_phone').oninput = function() {{
+        this.value = this.value.replace(/[^0-9]/g, '');
+    }};
+</script>
+"""
+
+components.html(full_ui, height=850)
