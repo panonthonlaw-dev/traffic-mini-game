@@ -1,26 +1,25 @@
 import streamlit as st
 
-# --- 1. ตั้งค่าหน้ากระดาษ ---
+# --- 1. ตั้งค่าพื้นฐาน ---
 st.set_page_config(page_title="Traffic Mini Game", page_icon="🚦", layout="centered")
 
-# --- 2. CSS ขั้นเทพ (แก้ชื่อคลาสให้ตรงกัน และเติมกล่องขาว) ---
+# --- 2. CSS บังคับกึ่งกลางและลบส่วนเกิน (เนียนที่สุด) ---
 st.markdown("""
     <style>
-        /* 1. พื้นหลังแอป */
-        .stApp {
-            background-color: #f0f2f5 !important;
-        }
-
-        /* 2. ลบส่วนเกินออกให้หมด */
+        /* 1. พื้นหลังและลบ Header/Footer */
+        .stApp { background-color: #f0f2f5 !important; }
         header, footer, [data-testid="stSidebar"] { display: none !important; }
         
-        /* 3. จัด Layout หลัก */
+        /* 2. จัด Layout หลักให้กึ่งกลางหน้าจอ */
         .block-container {
             max-width: 400px !important;
             padding-top: 5rem !important;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
 
-        /* 4. หัวข้อหลัก */
+        /* 3. หัวข้อหลัก (สีฟ้าเข้ม) */
         .main-logo {
             color: #1877f2 !important;
             font-size: 50px !important;
@@ -31,7 +30,7 @@ st.markdown("""
             text-align: center;
         }
         
-        /* 5. หัวข้อรอง */
+        /* 4. หัวข้อรอง (สีดำ) */
         .sub-logo {
             color: #000000 !important;
             font-size: 20px !important;
@@ -41,7 +40,7 @@ st.markdown("""
             text-align: center;
         }
 
-        /* --- ส่วนที่ทำให้เป็น "กล่องขาว" --- */
+        /* 5. กล่องขาว (The White Card) ขอบมน */
         div[data-testid="stVerticalBlock"] > div:has(div.login-card-anchor) {
             background-color: #ffffff !important;
             padding: 30px !important;
@@ -51,47 +50,58 @@ st.markdown("""
             display: flex;
             flex-direction: column;
             align-items: center;
+            width: 100% !important;
         }
 
-        /* 7. ช่องกรอกข้อมูล (Inputs) */
+        /* 6. ช่องกรอก (Inputs) - กึ่งกลาง */
         input {
             color: #000000 !important;
             background-color: #ffffff !important;
             border: 1px solid #dddfe2 !important;
             border-radius: 8px !important;
             padding: 14px !important;
-            font-size: 16px !important;
             text-align: center !important;
+            font-size: 16px !important;
         }
-        ::placeholder { color: #8d949e !important; }
+        ::placeholder { color: #8d949e !important; text-align: center; }
 
-        /* 8. ลบกล่องว่าง (Label) */
-        [data-testid="stWidgetLabel"] {
-            display: none !important;
-        }
+        /* 7. ลบช่องว่าง/Label เหนือชื่อผู้ใช้ */
+        [data-testid="stWidgetLabel"] { display: none !important; }
         .stTextInput { margin-top: -15px !important; margin-bottom: 10px !important; width: 100%; }
 
-        /* 9. ฆ่าปุ่มลูกตา */
-        button[aria-label="Show password"], 
-        .stTextInput div[data-baseweb="input"] button {
+        /* 8. **ทำลายลูกตาถาวร** */
+        button[aria-label="Show password"], .stTextInput div[data-baseweb="input"] button {
             display: none !important;
             visibility: hidden !important;
         }
 
-        /* 10. ปุ่มเข้าสู่ระบบ */
+        /* 9. จัดปุ่มทุกปุ่มให้กึ่งกลาง */
+        div.stButton {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+        }
+
+        /* ปุ่มเข้าสู่ระบบ (ฟ้าเข้ม) */
         div.stButton > button {
             background-color: #1877f2 !important;
             color: #ffffff !important;
-            border: none !important;
-            border-radius: 8px !important;
-            font-size: 20px !important;
             font-weight: bold !important;
             height: 50px !important;
             width: 100% !important;
+            border-radius: 8px !important;
+            border: none !important;
+        }
+
+        /* ปุ่มสร้างบัญชี (เขียว) */
+        .signup-container div.stButton > button {
+            background-color: #42b72a !important;
+            width: auto !important;
+            padding: 0 30px !important;
             margin-top: 10px !important;
         }
 
-        /* 11. ลืมรหัสผ่าน */
+        /* 10. ลืมรหัสผ่าน */
         .forgot-link {
             color: #1877f2 !important;
             font-size: 14px !important;
@@ -101,29 +111,10 @@ st.markdown("""
             text-align: center;
         }
 
-        /* 12. เส้นคั่น */
+        /* 11. เส้นคั่น */
         .divider {
             border-bottom: 1px solid #dddfe2;
             margin: 20px 0;
-            width: 100%;
-        }
-
-        /* 13. ปุ่มสร้างบัญชีใหม่ */
-        .signup-container div.stButton > button {
-            background-color: #42b72a !important;
-            color: #ffffff !important;
-            width: auto !important;
-            padding: 0 30px !important;
-            margin: 0 auto !important;
-            display: block !important;
-        }
-
-        /* --- ตัวครอบกึ่งกลาง (แก้ชื่อให้ตรงกับ UI) --- */
-        .main-center-wrapper {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
             width: 100%;
         }
     </style>
@@ -131,9 +122,7 @@ st.markdown("""
 
 # --- 3. การแสดงผล UI ---
 
-# วางตัวครอบ (Class Name ต้องตรงกับใน CSS)
-st.markdown('<div class="main-center-wrapper">', unsafe_allow_html=True)
-
+# หัวข้อด้านบน
 st.markdown('<p class="main-logo">traffic game</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-logo">เล่นเปลี่ยนรอด</p>', unsafe_allow_html=True)
 
@@ -141,21 +130,20 @@ st.markdown('<p class="sub-logo">เล่นเปลี่ยนรอด</p>'
 with st.container():
     st.markdown('<div class="login-card-anchor"></div>', unsafe_allow_html=True)
     
+    # ช่องกรอกข้อมูล
     st.text_input("U", placeholder="ชื่อผู้ใช้", label_visibility="collapsed", key="u_id")
     st.text_input("P", type="password", placeholder="รหัสผ่าน", label_visibility="collapsed", key="u_pw")
     
+    # ปุ่มเข้าสู่ระบบ
     if st.button("เข้าสู่ระบบ", key="btn_login"):
-        st.info("ระบบกำลังตรวจสอบ...")
+        st.info("กำลังตรวจสอบข้อมูล...")
 
+    # ส่วนล่างของฟอร์ม
     st.markdown('<a href="#" class="forgot-link">ลืมรหัสผ่านใช่หรือไม่?</a>', unsafe_allow_html=True)
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     
+    # ปุ่มสร้างบัญชีใหม่
     st.markdown('<div class="signup-container">', unsafe_allow_html=True)
     if st.button("สร้างบัญชีใหม่", key="btn_signup"):
         st.success("ไปหน้าสมัครสมาชิก")
     st.markdown('</div>', unsafe_allow_html=True)
-
-st.markdown('</div>', unsafe_allow_html=True)
-
-# Footer
-st.markdown("<p style='text-align:center; color:#606770; font-size:12px; margin-top:30px;'>Traffic Mini Game © 2026</p>", unsafe_allow_html=True)
