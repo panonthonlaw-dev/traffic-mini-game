@@ -4,7 +4,7 @@ import streamlit.components.v1 as components
 # 1. ตั้งค่าหน้ากระดาษ
 st.set_page_config(page_title="Traffic Game", layout="centered")
 
-# 2. โครงสร้าง HTML + CSS + JS (เน้นความเนียนและเช็คเงื่อนไข)
+# 2. โครงสร้าง HTML + CSS + JS (เน้นความเป๊ะเรื่องเบอร์โทร 10 หลัก)
 full_ui = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap');
@@ -33,8 +33,8 @@ full_ui = """
     }
     input:focus { border-color: #1877f2; }
     
-    /* ปิดลูกตาดูรหัสผ่าน */
-    input[type="password"]::-ms-reveal { display: none; }
+    /* ปิดลูกตาดูรหัสผ่านถาวร */
+    input[type="password"]::-ms-reveal, input[type="password"]::-ms-clear { display: none; }
 
     .btn {
         width: 100%; border: none; padding: 14px; font-size: 18px;
@@ -68,10 +68,11 @@ full_ui = """
         <input type="text" id="reg_fullname" placeholder="ชื่อ-นามสกุล">
         <div id="err_name" class="error-msg">กรุณากรอกชื่อ-นามสกุลให้ถูกต้อง</div>
 
-        <input type="text" id="reg_user" placeholder="ชื่อผู้ใช้ (อังกฤษ/ตัวเลข 6-12 ตัว)">
+        <input type="text" id="reg_user" placeholder="ชื่อผู้ใช้ (อังกฤษ/เลข 6-12 ตัว)">
         <div id="err_user" class="error-msg">ชื่อผู้ใช้ต้องเป็นอังกฤษ/ตัวเลข 6-12 ตัว</div>
 
-        <input type="text" id="reg_phone" placeholder="เบอร์โทรศัพท์">
+        <input type="text" id="reg_phone" placeholder="เบอร์โทรศัพท์ (เลข 10 หลัก)" maxlength="10">
+        <div id="err_phone" class="error-msg">กรุณากรอกเบอร์โทรศัพท์เป็นตัวเลข 10 หลัก</div>
         
         <input type="password" id="reg_pass" placeholder="รหัสผ่าน (6-13 ตัว)">
         <div id="err_pass" class="error-msg">รหัสผ่านต้องเป็นอังกฤษ/ตัวเลข 6-13 ตัว</div>
@@ -83,7 +84,7 @@ full_ui = """
         <div class="link-text" onclick="showLogin()">กลับไปหน้าเข้าสู่ระบบ</div>
     </div>
 
-    <p style="color: #606770; font-size: 12px; margin-top: 30px;">Traffic Mini Game © 2026</p>
+    <p style="color: #606770; font-size: 12px; margin-top: 30px;">Traffic Mini Game • Safety First</p>
 </div>
 
 <script>
@@ -103,9 +104,10 @@ full_ui = """
         const pass = document.getElementById('reg_pass').value;
         const confirm = document.getElementById('reg_confirm').value;
 
-        // Regex ตรวจสอบเงื่อนไข
+        // --- เงื่อนไขการตรวจสอบ ---
         const userRegex = /^[a-zA-Z0-9]{6,12}$/;
         const passRegex = /^[a-zA-Z0-9]{6,13}$/;
+        const phoneRegex = /^[0-9]{10}$/; // ตัวเลขล้วน 10 หลัก
         const nameRegex = /^[a-zA-Zก-ฮะ-์\s]+$/;
 
         let isValid = true;
@@ -115,14 +117,20 @@ full_ui = """
 
         if (!nameRegex.test(name)) { document.getElementById('err_name').style.display = 'block'; isValid = false; }
         if (!userRegex.test(user)) { document.getElementById('err_user').style.display = 'block'; isValid = false; }
+        if (!phoneRegex.test(phone)) { document.getElementById('err_phone').style.display = 'block'; isValid = false; }
         if (!passRegex.test(pass)) { document.getElementById('err_pass').style.display = 'block'; isValid = false; }
         if (pass !== confirm) { document.getElementById('err_match').style.display = 'block'; isValid = false; }
 
         if (isValid) {
-            // ส่งข้อมูลไปเช็คชื่อซ้ำใน Python (เตรียมไว้ให้แล้ว)
-            alert('กำลังส่งข้อมูลลงทะเบียนสำหรับ: ' + user);
+            alert('ลงทะเบียนสำเร็จสำหรับผู้ใช้: ' + user);
+            // พร้อมส่งข้อมูลไปบันทึกลงฐานข้อมูล
         }
     }
+
+    // ป้องกันการพิมพ์ตัวอักษรลงในช่องเบอร์โทร
+    document.getElementById('reg_phone').oninput = function() {
+        this.value = this.value.replace(/[^0-9]/g, '');
+    };
 </script>
 """
 
