@@ -42,14 +42,7 @@ st.markdown("""
             margin-bottom: 25px !important;
         }
 
-        /* 6. การ์ดสีขาว (The White Card) */
-        div[data-testid="stVerticalBlock"] > div:has(div.login-card-anchor) {
-            background-color: #ffffff !important;
-            padding: 30px !important;
-            border-radius: 12px !important;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.1), 0 4px 12px rgba(0,0,0,0.1) !important;
-            border: 1px solid #dddfe2 !important;
-            width: 100% !important;
+      
         }
 
         /* 7. ช่องกรอกข้อมูล (Inputs) - บังคับสีดำ-ขาว */
