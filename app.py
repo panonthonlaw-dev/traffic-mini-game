@@ -4,7 +4,7 @@ import streamlit.components.v1 as components
 # 1. ตั้งค่าหน้ากระดาษ
 st.set_page_config(page_title="Traffic Game", layout="centered")
 
-# 2. โครงสร้าง HTML + CSS + JS (เน้นความเป๊ะเรื่องเบอร์โทร 10 หลัก)
+# 2. โครงสร้าง HTML + CSS + JS
 full_ui = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap');
@@ -56,7 +56,7 @@ full_ui = """
     <div class="card" id="login-box">
         <input type="text" id="login_user" placeholder="ชื่อผู้ใช้">
         <input type="password" id="login_pass" placeholder="รหัสผ่าน">
-        <button class="btn btn-blue" onclick="handleLogin()">เข้าสู่ระบบ</button>
+        <button class="btn btn-blue">เข้าสู่ระบบ</button>
         <div class="link-text">ลืมรหัสผ่านใช่หรือไม่?</div>
         <div class="divider"></div>
         <button class="btn btn-green" onclick="showSignup()">สร้างบัญชีใหม่</button>
@@ -69,7 +69,9 @@ full_ui = """
         <div id="err_name" class="error-msg">กรุณากรอกชื่อ-นามสกุลให้ถูกต้อง</div>
 
         <input type="text" id="reg_user" placeholder="ชื่อผู้ใช้ (อังกฤษ/เลข 6-12 ตัว)">
-        <div id="err_user" class="error-msg">ชื่อผู้ใช้ต้องเป็นอังกฤษ/ตัวเลข 6-12 ตัว</div>
+        <div id="err_user" class="error-msg">ชื่อผู้ใช้ต้องเป็นอังกฤษ/เลข 6-12 ตัว</div>
+        <div id="err_user_space" class="error-msg">ห้ามมีเว้นวรรคข้างหน้าหรือข้างหลังชื่อผู้ใช้</div>
+        <div id="err_user_dup" class="error-msg">ชื่อผู้ใช้ี้มีคนใช้แล้ว กรุณาเปลี่ยนใหม่</div>
 
         <input type="text" id="reg_phone" placeholder="เบอร์โทรศัพท์ (เลข 10 หลัก)" maxlength="10">
         <div id="err_phone" class="error-msg">กรุณากรอกเบอร์โทรศัพท์เป็นตัวเลข 10 หลัก</div>
@@ -78,16 +80,17 @@ full_ui = """
         <div id="err_pass" class="error-msg">รหัสผ่านต้องเป็นอังกฤษ/ตัวเลข 6-13 ตัว</div>
 
         <input type="password" id="reg_confirm" placeholder="ยืนยันรหัสผ่าน">
-        <div id="err_match" class="error-msg">รหัสผ่านไม่ตรงกัน</div>
-
         <button class="btn btn-blue" onclick="validateSignup()">ลงทะเบียน</button>
         <div class="link-text" onclick="showLogin()">กลับไปหน้าเข้าสู่ระบบ</div>
     </div>
 
-    <p style="color: #606770; font-size: 12px; margin-top: 30px;">Traffic Mini Game • Safety First</p>
+    <p style="color: #606770; font-size: 12px; margin-top: 30px;">Traffic Mini Game © 2026</p>
 </div>
 
 <script>
+    // รายชื่อผู้ใช้จำลองเพื่อเช็คชื่อซ้ำ (ของจริงจะเช็คผ่านฐานข้อมูล)
+    const existingUsers = ['admin123', 'user6677', 'test001'];
+
     function showSignup() {
         document.getElementById('login-box').style.display = 'none';
         document.getElementById('signup-box').style.display = 'block';
@@ -99,35 +102,48 @@ full_ui = """
 
     function validateSignup() {
         const name = document.getElementById('reg_fullname').value;
-        const user = document.getElementById('reg_user').value;
+        const userRaw = document.getElementById('reg_user').value;
         const phone = document.getElementById('reg_phone').value;
         const pass = document.getElementById('reg_pass').value;
         const confirm = document.getElementById('reg_confirm').value;
 
-        // --- เงื่อนไขการตรวจสอบ ---
+        const user = userRaw.trim(); // ชื่อที่ตัดช่องว่างออกแล้ว
+
+        // เงื่อนไข Regex
         const userRegex = /^[a-zA-Z0-9]{6,12}$/;
         const passRegex = /^[a-zA-Z0-9]{6,13}$/;
-        const phoneRegex = /^[0-9]{10}$/; // ตัวเลขล้วน 10 หลัก
+        const phoneRegex = /^[0-9]{10}$/;
         const nameRegex = /^[a-zA-Zก-ฮะ-์\s]+$/;
 
         let isValid = true;
 
-        // ล้าง Error เก่า
+        // ล้าง Error เก่าออกให้หมด
         document.querySelectorAll('.error-msg').forEach(el => el.style.display = 'none');
 
+        // 1. เช็คเว้นวรรค หน้า-หลัง
+        if (userRaw !== user) {
+            document.getElementById('err_user_space').style.display = 'block';
+            isValid = false;
+        }
+        // 2. เช็คชื่อซ้ำ (จำลอง)
+        if (existingUsers.includes(user)) {
+            document.getElementById('err_user_dup').style.display = 'block';
+            isValid = false;
+        }
+        // 3. เช็คเงื่อนไขพื้นฐาน
         if (!nameRegex.test(name)) { document.getElementById('err_name').style.display = 'block'; isValid = false; }
         if (!userRegex.test(user)) { document.getElementById('err_user').style.display = 'block'; isValid = false; }
         if (!phoneRegex.test(phone)) { document.getElementById('err_phone').style.display = 'block'; isValid = false; }
         if (!passRegex.test(pass)) { document.getElementById('err_pass').style.display = 'block'; isValid = false; }
-        if (pass !== confirm) { document.getElementById('err_match').style.display = 'block'; isValid = false; }
+        if (pass !== confirm) { alert('รหัสผ่านไม่ตรงกัน'); isValid = false; }
 
         if (isValid) {
-            alert('ลงทะเบียนสำเร็จสำหรับผู้ใช้: ' + user);
-            // พร้อมส่งข้อมูลไปบันทึกลงฐานข้อมูล
+            alert('สมัครสมาชิกสำเร็จ!');
+            showLogin(); // สมัครสำเร็จปุ๊บ เด้งกลับหน้าแรกทันที
         }
     }
 
-    // ป้องกันการพิมพ์ตัวอักษรลงในช่องเบอร์โทร
+    // ล็อคเบอร์โทรให้พิมพ์ได้แค่ตัวเลข
     document.getElementById('reg_phone').oninput = function() {
         this.value = this.value.replace(/[^0-9]/g, '');
     };
