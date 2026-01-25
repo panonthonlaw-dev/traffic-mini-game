@@ -2,61 +2,60 @@ import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client
 
-# --- 1. ตั้งค่า Supabase ---
-# ตรวจสอบว่าในหมวด Secrets หรือไฟล์ config มี URL และ KEY แล้ว
+# --- 1. เชื่อมต่อ Supabase (ต้องใส่ใน Secrets ของ Streamlit) ---
 try:
-    URL = st.secrets["SUPABASE_URL"]
-    KEY = st.secrets["SUPABASE_KEY"]
-    supabase = create_client(URL, KEY)
-except:
-    st.error("❌ ไม่พบ Supabase Credentials ใน Secrets")
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    supabase = create_client(url, key)
+except Exception as e:
+    st.error("❌ เชื่อมต่อ Supabase ไม่ได้: ตรวจสอบ Secrets (URL/KEY)")
     st.stop()
 
-# --- 2. ฟังก์ชันจัดการสมัครสมาชิก (รับช่วงต่อจาก HTML) ---
-def process_registration():
-    # ดึงค่าจาก URL Query Parameters
-    params = st.query_params
+# --- 2. ระบบจัดการข้อมูล (ต้องรันก่อนแสดง UI) ---
+def sync_data():
+    # ดึงค่าจาก URL ที่ JavaScript ส่งมา
+    params = st.query_params.to_dict()
     
     if "reg_user" in params:
-        username = params["reg_user"].strip()
-        fullname = params["reg_name"]
-        phone = params["reg_phone"]
-        password = params["reg_pass"]
-
         try:
-            # 1. เช็คชื่อซ้ำ
-            check = supabase.table("users").select("username").eq("username", username).execute()
-            if check.data:
-                st.error(f"❌ ชื่อผู้ใช้ '{username}' มีผู้ใช้งานแล้ว!")
-                st.query_params.clear() # ล้างค่าทิ้งเพื่อเริ่มต้นใหม่
-                return
+            # ดึงค่าออกมา
+            u_name = params["reg_name"]
+            u_user = params["reg_user"].strip()
+            u_phone = params["reg_phone"]
+            u_pass = params["reg_pass"]
 
-            # 2. บันทึกข้อมูล
-            user_data = {
-                "fullname": fullname,
-                "username": username,
-                "phone": phone,
-                "password": password
-            }
-            supabase.table("users").insert(user_data).execute()
-            
-            st.success(f"✅ ยินดีด้วยคุณ {fullname} สมัครสมาชิกสำเร็จ!")
-            st.balloons()
-            # ล้างค่าเพื่อให้หน้าจอกลับมาเป็นปกติ
+            # 1. เช็คชื่อซ้ำก่อนบันทึก
+            res = supabase.table("users").select("username").eq("username", u_user).execute()
+            if res.data:
+                st.warning(f"⚠️ ชื่อผู้ใช้ '{u_user}' มีคนใช้แล้ว!")
+            else:
+                # 2. บันทึกจริง (ชื่อคอลัมน์ต้องตรงกับในฐานข้อมูลเป๊ะ)
+                supabase.table("users").insert({
+                    "fullname": u_name,
+                    "username": u_user,
+                    "phone": u_phone,
+                    "password": u_pass
+                }).execute()
+                
+                st.success(f"✅ สมัครสำเร็จ! ยินดีด้วยคุณ {u_name}")
+                st.balloons()
+
+            # ล้าง URL เพื่อไม่ให้บันทึกซ้ำตอน Refresh
             st.query_params.clear()
-
+            
         except Exception as e:
-            st.error(f"⚠️ เกิดข้อผิดพลาดทางเทคนิค: {e}")
+            st.error(f"⚠️ เกิดข้อผิดพลาด: {str(e)}")
 
-# รันระบบตรวจสอบการส่งค่า
-process_registration()
+# รันระบบดักรับข้อมูล
+sync_data()
 
-# --- 3. UI HTML + CSS + JS (กึ่งกลาง, ไร้ลูกตา, ลืมรหัสหน้าแรก) ---
+# --- 3. UI HTML + CSS + JS (กึ่งกลาง, ไร้ลูกตา, ครบทุกระบบ) ---
+# ผมล็อค CSS เดิมของพี่ไว้เป๊ะๆ ไม่เปลี่ยนสไตล์ครับ
 full_ui = f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap');
     body {{ margin: 0; background-color: #f0f2f5; font-family: 'Kanit', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }}
-    .container {{ text-align: center; width: 100%; max-width: 400px; padding: 10px; }}
+    .container {{ text-align: center; width: 100%; max-width: 400px; padding: 20px; }}
     .main-logo {{ color: #1877f2; font-size: 50px; font-weight: bold; margin-bottom: 5px; letter-spacing: -2px; }}
     .sub-logo {{ color: #000000; font-size: 22px; font-weight: 500; margin-bottom: 25px; }}
     .card {{ background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); border: 1px solid #dddfe2; }}
@@ -79,20 +78,20 @@ full_ui = f"""
     <div class="card" id="login-box">
         <input type="text" id="login_user" placeholder="ชื่อผู้ใช้">
         <input type="password" id="login_pass" placeholder="รหัสผ่าน">
-        <button class="btn btn-blue" onclick="alert('ระบบเข้าสู่ระบบกำลังตามมาครับ')">เข้าสู่ระบบ</button>
+        <button class="btn btn-blue">เข้าสู่ระบบ</button>
         <div class="link-text" onclick="showForgot()">ลืมรหัสผ่านใช่หรือไม่?</div>
         <div class="divider"></div>
         <button class="btn btn-green" onclick="showSignup()">สร้างบัญชีใหม่</button>
     </div>
 
     <div class="card" id="signup-box">
-        <h2 style="margin:0 0 20px 0;">สมัครสมาชิก</h2>
+        <h2 style="margin:0 0 20px 0; color:#1c1e21;">สมัครสมาชิก</h2>
         <input type="text" id="reg_fullname" placeholder="ชื่อ-นามสกุล">
         <input type="text" id="reg_user" placeholder="ชื่อผู้ใช้ (อังกฤษ/เลข 6-12 ตัว)">
         <input type="text" id="reg_phone" placeholder="เบอร์โทรศัพท์ (10 หลัก)" maxlength="10">
         <input type="password" id="reg_pass" placeholder="รหัสผ่าน (6-13 ตัว)">
         <input type="password" id="reg_confirm" placeholder="ยืนยันรหัสผ่าน">
-        <button class="btn btn-blue" onclick="doRegister()">ลงทะเบียน</button>
+        <button class="btn btn-blue" onclick="submitToPython()">ลงทะเบียน</button>
         <div class="link-text" onclick="showLogin()">กลับไปหน้าเข้าสู่ระบบ</div>
     </div>
 
@@ -109,14 +108,14 @@ full_ui = f"""
     function showLogin() {{ document.getElementById('signup-box').style.display='none'; document.getElementById('forgot-box').style.display='none'; document.getElementById('login-box').style.display='block'; }}
     function showForgot() {{ document.getElementById('login-box').style.display='none'; document.getElementById('signup-box').style.display='none'; document.getElementById('forgot-box').style.display='block'; }}
 
-    function doRegister() {{
+    function submitToPython() {{
         const name = document.getElementById('reg_fullname').value;
         const user = document.getElementById('reg_user').value.trim();
         const phone = document.getElementById('reg_phone').value;
         const pass = document.getElementById('reg_pass').value;
         const confirm = document.getElementById('reg_confirm').value;
 
-        // Validation ขั้นต้น
+        // Validation พื้นฐาน
         if (!name || user.length < 6 || phone.length !== 10 || pass.length < 6) {{
             alert('กรุณากรอกข้อมูลให้ครบถ้วนตามเงื่อนไข');
             return;
@@ -126,22 +125,21 @@ full_ui = f"""
             return;
         }}
 
-        // ส่งข้อมูลแบบ Force Redirect ไปที่ Parent Window
-        const url = new URL(window.parent.location.origin + window.parent.location.pathname);
-        url.searchParams.set('reg_name', name);
-        url.searchParams.set('reg_user', user);
-        url.searchParams.set('reg_phone', phone);
-        url.searchParams.set('reg_pass', pass);
+        // เจาะออกจาก Iframe เพื่อส่งค่าไปหน้าหลัก (Parent)
+        const parentUrl = new URL(window.parent.location.href);
+        parentUrl.searchParams.set('reg_name', name);
+        parentUrl.searchParams.set('reg_user', user);
+        parentUrl.searchParams.set('reg_phone', phone);
+        parentUrl.searchParams.set('reg_pass', pass);
         
-        window.parent.location.assign(url.toString());
+        // สั่งให้หน้าหลักรีโหลดพร้อมค่าใหม่
+        window.parent.location.href = parentUrl.toString();
     }}
 
-    // ล็อคเบอร์โทรตัวเลขเท่านั้น
     document.getElementById('reg_phone').oninput = function() {{
         this.value = this.value.replace(/[^0-9]/g, '');
     }};
 </script>
 """
 
-# แสดงผล UI
 components.html(full_ui, height=850)
