@@ -2,34 +2,33 @@ import streamlit as st
 import streamlit.components.v1 as components
 from supabase import create_client
 
-# --- 1. เชื่อมต่อ Supabase (ต้องใส่ใน Secrets ของ Streamlit) ---
+# --- 1. เชื่อมต่อ Supabase ---
 try:
     url = st.secrets["SUPABASE_URL"]
     key = st.secrets["SUPABASE_KEY"]
     supabase = create_client(url, key)
 except Exception as e:
-    st.error("❌ เชื่อมต่อ Supabase ไม่ได้: ตรวจสอบ Secrets (URL/KEY)")
+    st.error("❌ เชื่อมต่อ Supabase ไม่ได้: ตรวจสอบ Secrets")
     st.stop()
 
-# --- 2. ระบบจัดการข้อมูล (ต้องรันก่อนแสดง UI) ---
+# --- 2. ระบบจัดการข้อมูล (ดักรับค่าจากหน้าเว็บ) ---
 def sync_data():
-    # ดึงค่าจาก URL ที่ JavaScript ส่งมา
-    params = st.query_params.to_dict()
+    params = st.query_params
     
+    # ถ้ามีค่า reg_user ส่งมาใน URL ให้เริ่มทำงาน
     if "reg_user" in params:
         try:
-            # ดึงค่าออกมา
-            u_name = params["reg_name"]
-            u_user = params["reg_user"].strip()
-            u_phone = params["reg_phone"]
-            u_pass = params["reg_pass"]
+            u_name = params.get("reg_name")
+            u_user = params.get("reg_user").strip()
+            u_phone = params.get("reg_phone")
+            u_pass = params.get("reg_pass")
 
-            # 1. เช็คชื่อซ้ำก่อนบันทึก
+            # 1. เช็คชื่อซ้ำ
             res = supabase.table("users").select("username").eq("username", u_user).execute()
             if res.data:
                 st.warning(f"⚠️ ชื่อผู้ใช้ '{u_user}' มีคนใช้แล้ว!")
             else:
-                # 2. บันทึกจริง (ชื่อคอลัมน์ต้องตรงกับในฐานข้อมูลเป๊ะ)
+                # 2. บันทึกข้อมูล
                 supabase.table("users").insert({
                     "fullname": u_name,
                     "username": u_user,
@@ -40,17 +39,16 @@ def sync_data():
                 st.success(f"✅ สมัครสำเร็จ! ยินดีด้วยคุณ {u_name}")
                 st.balloons()
 
-            # ล้าง URL เพื่อไม่ให้บันทึกซ้ำตอน Refresh
+            # ล้าง URL เพื่อให้ปุ่มไม่ค้างและป้องกันการบันทึกซ้ำ
             st.query_params.clear()
+            st.rerun() # บังคับรีเฟรชหน้าเพื่อล้าง State
             
         except Exception as e:
-            st.error(f"⚠️ เกิดข้อผิดพลาด: {str(e)}")
+            st.error(f"⚠️ ฐานข้อมูลแจ้งว่า: {str(e)}")
 
-# รันระบบดักรับข้อมูล
 sync_data()
 
-# --- 3. UI HTML + CSS + JS (กึ่งกลาง, ไร้ลูกตา, ครบทุกระบบ) ---
-# ผมล็อค CSS เดิมของพี่ไว้เป๊ะๆ ไม่เปลี่ยนสไตล์ครับ
+# --- 3. UI HTML + CSS + JS ---
 full_ui = f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;700&display=swap');
@@ -63,9 +61,8 @@ full_ui = f"""
     input {{ width: 100%; padding: 14px; margin-bottom: 12px; border: 1px solid #dddfe2; border-radius: 8px; font-size: 16px; box-sizing: border-box; text-align: center; outline: none; }}
     input:focus {{ border-color: #1877f2; }}
     input[type="password"]::-ms-reveal {{ display: none; }}
-    .btn {{ width: 100%; border: none; padding: 14px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 5px; transition: 0.2s; }}
+    .btn {{ width: 100%; border: none; padding: 14px; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; margin-top: 5px; }}
     .btn-blue {{ background-color: #1877f2; color: white; }}
-    .btn-blue:hover {{ background-color: #166fe5; }}
     .btn-green {{ background-color: #42b72a; color: white; width: auto; padding: 12px 30px; }}
     .link-text {{ display: block; color: #1877f2; font-size: 14px; margin: 15px 0; text-decoration: none; cursor: pointer; }}
     .divider {{ border-bottom: 1px solid #dadde1; margin: 20px 0; }}
@@ -78,16 +75,16 @@ full_ui = f"""
     <div class="card" id="login-box">
         <input type="text" id="login_user" placeholder="ชื่อผู้ใช้">
         <input type="password" id="login_pass" placeholder="รหัสผ่าน">
-        <button class="btn btn-blue">เข้าสู่ระบบ</button>
+        <button class="btn btn-blue" onclick="alert('ระบบล็อกอินจะมาเร็วๆ นี้')">เข้าสู่ระบบ</button>
         <div class="link-text" onclick="showForgot()">ลืมรหัสผ่านใช่หรือไม่?</div>
         <div class="divider"></div>
         <button class="btn btn-green" onclick="showSignup()">สร้างบัญชีใหม่</button>
     </div>
 
     <div class="card" id="signup-box">
-        <h2 style="margin:0 0 20px 0; color:#1c1e21;">สมัครสมาชิก</h2>
+        <h2 style="margin:0 0 20px 0;">สมัครสมาชิก</h2>
         <input type="text" id="reg_fullname" placeholder="ชื่อ-นามสกุล">
-        <input type="text" id="reg_user" placeholder="ชื่อผู้ใช้ (อังกฤษ/เลข 6-12 ตัว)">
+        <input type="text" id="reg_user" placeholder="ชื่อผู้ใช้ (6-12 ตัว)">
         <input type="text" id="reg_phone" placeholder="เบอร์โทรศัพท์ (10 หลัก)" maxlength="10">
         <input type="password" id="reg_pass" placeholder="รหัสผ่าน (6-13 ตัว)">
         <input type="password" id="reg_confirm" placeholder="ยืนยันรหัสผ่าน">
@@ -104,9 +101,9 @@ full_ui = f"""
 </div>
 
 <script>
-    function showSignup() {{ document.getElementById('login-box').style.display='none'; document.getElementById('forgot-box').style.display='none'; document.getElementById('signup-box').style.display='block'; }}
-    function showLogin() {{ document.getElementById('signup-box').style.display='none'; document.getElementById('forgot-box').style.display='none'; document.getElementById('login-box').style.display='block'; }}
-    function showForgot() {{ document.getElementById('login-box').style.display='none'; document.getElementById('signup-box').style.display='none'; document.getElementById('forgot-box').style.display='block'; }}
+    function showSignup() {{ document.getElementById('login-box').style.display='none'; document.getElementById('signup-box').style.display='block'; }}
+    function showLogin() {{ document.getElementById('signup-box').style.display='none'; document.getElementById('login-box').style.display='block'; }}
+    function showForgot() {{ document.getElementById('login-box').style.display='none'; document.getElementById('forgot-box').style.display='block'; }}
 
     function submitToPython() {{
         const name = document.getElementById('reg_fullname').value;
@@ -115,9 +112,8 @@ full_ui = f"""
         const pass = document.getElementById('reg_pass').value;
         const confirm = document.getElementById('reg_confirm').value;
 
-        // Validation พื้นฐาน
         if (!name || user.length < 6 || phone.length !== 10 || pass.length < 6) {{
-            alert('กรุณากรอกข้อมูลให้ครบถ้วนตามเงื่อนไข');
+            alert('กรุณากรอกข้อมูลให้ครบและถูกต้องตามเงื่อนไข');
             return;
         }}
         if (pass !== confirm) {{
@@ -125,20 +121,15 @@ full_ui = f"""
             return;
         }}
 
-        // เจาะออกจาก Iframe เพื่อส่งค่าไปหน้าหลัก (Parent)
-        const parentUrl = new URL(window.parent.location.href);
-        parentUrl.searchParams.set('reg_name', name);
-        parentUrl.searchParams.set('reg_user', user);
-        parentUrl.searchParams.set('reg_phone', phone);
-        parentUrl.searchParams.set('reg_pass', pass);
+        // ใช้ window.top แทน window.parent เพื่อเจาะออกจาก Iframe ไปยังหน้าหลักแน่นอน
+        const url = new URL(window.top.location.href);
+        url.searchParams.set('reg_name', name);
+        url.searchParams.set('reg_user', user);
+        url.searchParams.set('reg_phone', phone);
+        url.searchParams.set('reg_pass', pass);
         
-        // สั่งให้หน้าหลักรีโหลดพร้อมค่าใหม่
-        window.parent.location.href = parentUrl.toString();
+        window.top.location.href = url.toString();
     }}
-
-    document.getElementById('reg_phone').oninput = function() {{
-        this.value = this.value.replace(/[^0-9]/g, '');
-    }};
 </script>
 """
 
