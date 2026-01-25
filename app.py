@@ -8,13 +8,13 @@ import re
 from PIL import Image
 from datetime import datetime
 
-# --- 1. ตั้งค่าหน้าตาแอปและการเชื่อมต่อ ---
+# --- 1. การตั้งค่าหน้าตาแอปและการเชื่อมต่อ ---
 st.set_page_config(page_title="Traffic Mini Game", page_icon="🚦", layout="centered")
 
-# CSS สำหรับซ่อน Sidebar/Topbar และบังคับพื้นหลังสีขาวตลอดกาล
+# CSS ขั้นสูง: บังคับทุกอย่างเป็นสีขาวและปุ่มสีขาว
 st.markdown("""
     <style>
-        /* 1. บังคับพื้นหลังสีขาว และตัวอักษรสีดำ */
+        /* 1. บังคับพื้นหลังแอปเป็นสีขาว */
         .stApp {
             background-color: white !important;
             color: black !important;
@@ -25,32 +25,49 @@ st.markdown("""
         section[data-testid="stSidebar"] { display: none; }
         [data-testid="collapsedControl"] { display: none; }
         
-        /* 3. ปรับระยะขอบหน้าจอ */
-        .block-container { padding-top: 2rem; max-width: 500px; }
-
-        /* 4. ปรับสีตัวอักษรของทุกส่วนให้เป็นสีดำเพื่อให้ชัดบนพื้นขาว */
-        h1, h2, h3, p, span, label, .stMarkdown {
+        /* 3. จัดการ "ทุกปุ่ม" ให้เป็นพื้นหลังขาว ตัวอักษรดำ */
+        button, .stButton>button {
+            background-color: white !important;
             color: black !important;
-        }
-
-        /* 5. ปรับแต่งปุ่มและช่องกรอกข้อมูล */
-        .stButton>button {
-            border-radius: 12px;
-            border: 1px solid #ddd;
-        }
-        .stTextInput>div>div>input {
-            background-color: #f8f9fa !important;
-            color: black !important;
+            border: 1px solid #cccccc !important;
             border-radius: 10px !important;
+            height: 3em !important;
+            width: 100% !important;
+            transition: all 0.3s ease !important;
         }
-        
-        /* ปรับสี Tabs */
-        .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
-            color: #555 !important;
+
+        /* เอฟเฟกต์ตอนเอาเมาส์ไปวางบนปุ่ม (Hover) */
+        button:hover, .stButton>button:hover {
+            background-color: #f0f2f6 !important;
+            border: 1px solid #999999 !important;
         }
-        .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] [data-testid="stMarkdownContainer"] p {
-            color: #000 !important;
-            font-weight: bold;
+
+        /* 4. ปรับสีตัวอักษรของ Header และข้อความต่างๆ */
+        h1, h2, h3, p, span, label, .stMarkdownContainer p {
+            color: black !important;
+        }
+
+        /* 5. ปรับสีช่องกรอกข้อมูล (Input) */
+        .stTextInput>div>div>input {
+            background-color: #ffffff !important;
+            color: black !important;
+            border: 1px solid #dddddd !important;
+            border-radius: 8px !important;
+        }
+
+        /* 6. ปรับระยะขอบหน้าจอให้พอดีมือถือ */
+        .block-container {
+            padding-top: 2rem;
+            max-width: 450px;
+        }
+
+        /* ปรับสี Tabs ให้เป็นโทนเทา-ดำ */
+        .stTabs [data-baseweb="tab-list"] button {
+            color: #888888 !important;
+        }
+        .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+            color: black !important;
+            border-bottom-color: black !important;
         }
     </style>
 """, unsafe_allow_html=True)
@@ -69,7 +86,7 @@ def init_drive():
     creds = service_account.Credentials.from_service_account_info(info)
     return build('drive', 'v3', credentials=creds)
 
-# --- 2. ฟังก์ชันจัดการระบบ ---
+# --- 2. ฟังก์ชันระบบ (Logic) ---
 
 def format_email(user_id):
     return f"{user_id.strip().lower()}@traffic.com"
@@ -109,7 +126,7 @@ if 'user' not in st.session_state:
     with tab_l:
         l_uid = st.text_input("UserID", key="login_uid")
         l_pw = st.text_input("รหัสผ่าน", type="password", key="login_pass")
-        if st.button("เข้าสู่ระบบ", use_container_width=True):
+        if st.button("เข้าสู่ระบบ", key="btn_login"):
             try:
                 res = supabase.auth.sign_in_with_password({"email": format_email(l_uid), "password": l_pw})
                 if res.user:
@@ -119,13 +136,12 @@ if 'user' not in st.session_state:
             except: st.error("❌ ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง")
 
     with tab_s:
-        s_uid = st.text_input("ตั้ง UserID (อังกฤษ/เลข)", key="reg_uid")
+        s_uid = st.text_input("ตั้ง UserID", key="reg_uid")
         s_pw = st.text_input("ตั้งรหัสผ่าน", type="password", key="reg_pw")
         s_name = st.text_input("ชื่อ-นามสกุลจริง")
         s_sid = st.text_input("รหัสนักเรียน")
-        s_phone = st.text_input("เบอร์โทรศัพท์ (10 หลัก)")
-        
-        if st.button("ยืนยันการสมัคร", use_container_width=True):
+        s_phone = st.text_input("เบอร์โทรศัพท์")
+        if st.button("ยืนยันการสมัคร", key="btn_signup"):
             if all([s_uid, s_pw, s_name, s_sid, s_phone]):
                 valid, msg = validate_signup_data(s_uid, s_pw, s_sid, s_phone)
                 if not valid: st.error(msg)
@@ -140,7 +156,6 @@ if 'user' not in st.session_state:
                             }).execute()
                             st.success("✅ สมัครสำเร็จ!")
                     except: st.error("❌ ชื่อนี้อาจถูกใช้ไปแล้ว")
-            else: st.warning("กรุณากรอกข้อมูลให้ครบ")
 
     with tab_f:
         st.subheader("กู้คืนรหัสผ่าน")
@@ -148,7 +163,7 @@ if 'user' not in st.session_state:
         f_sid = st.text_input("รหัสนักเรียน", key="f_sid")
         f_phone = st.text_input("เบอร์โทร", key="f_phone")
         f_newpw = st.text_input("ตั้งรหัสผ่านใหม่", type="password", key="f_newpw")
-        if st.button("รีเซ็ตรหัสผ่าน", use_container_width=True):
+        if st.button("รีเซ็ตรหัสผ่าน", key="btn_reset"):
             if all([f_uid, f_sid, f_phone, f_newpw]) and re.match("^[a-zA-Z0-9]*$", f_newpw):
                 try:
                     check = supabase.table("profiles").select("id").eq("username", f_uid.lower()).eq("student_id", f_sid).eq("phone_number", f_phone).single().execute()
@@ -156,9 +171,8 @@ if 'user' not in st.session_state:
                         supabase_admin.auth.admin.update_user_by_id(check.data['id'], {"password": f_newpw})
                         supabase.table("profiles").update({"password_plain": f_newpw}).eq("id", check.data['id']).execute()
                         st.success("✅ เปลี่ยนรหัสผ่านสำเร็จ!")
-                    else: st.error("❌ ข้อมูลไม่ตรงกับในระบบ")
-                except: st.error("❌ ไม่พบผู้ใช้")
-            else: st.warning("กรุณากรอกข้อมูลให้ครบ")
+                    else: st.error("❌ ข้อมูลไม่ถูกต้อง")
+                except: st.error("❌ ไม่พบข้อมูล")
 
 else:
     # --- เมื่อ Login สำเร็จ ---
@@ -167,15 +181,15 @@ else:
     username = prof.get('username', 'User')
     
     col_h, col_o = st.columns([0.7, 0.3])
-    col_h.write(f"👤 **{username}** ({st.session_state.role})")
-    if col_o.button("Logout", use_container_width=True):
+    col_h.write(f"👤 **{username}**")
+    if col_o.button("Logout", key="btn_logout"):
         supabase.auth.sign_out(); st.session_state.clear(); st.rerun()
 
     st.divider()
 
     if st.session_state.role == "admin":
-        st.title("🛠️ แผงควบคุมแอดมิน")
-        # โค้ดส่วน Admin...
+        st.title("🛠️ แอดมิน")
+        # ส่วนแอดมิน...
     else:
         st.title(f"สวัสดีคุณ {username} 👋")
         c1, c2 = st.columns(2)
@@ -189,7 +203,7 @@ else:
             st.info(f"🚩 **ภารกิจ:** {t['task_name']}\n\n{t['task_description']}")
             img = st.camera_input("📸 ถ่ายรูปส่งงาน")
             if img:
-                if st.button("ส่งงานตรวจสอบ", use_container_width=True):
+                if st.button("ส่งงานตรวจสอบ", key="btn_submit"):
                     with st.spinner("กำลังส่งงาน..."):
                         d_id = upload_to_drive(img, username)
                         if d_id:
