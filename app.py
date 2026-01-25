@@ -8,7 +8,7 @@ import re
 from PIL import Image
 from datetime import datetime
 
-# --- 1. การตั้งค่าหน้าตาแอปและการเชื่อมต่อ ---
+# --- 1. ตั้งค่าหน้าตาแอปและการเชื่อมต่อ ---
 st.set_page_config(page_title="Traffic Mini Game", page_icon="🚦", layout="centered")
 
 # เชื่อมต่อ Supabase
@@ -27,14 +27,14 @@ def init_drive():
 # --- 2. ฟังก์ชันจัดการระบบ (Logic) ---
 
 def format_email(user_id):
-    # สำคัญมาก: ต้อง .lower() ทั้งตอนสมัครและล็อกอิน เพื่อให้หาเจอ
+    # บังคับเป็นตัวพิมพ์เล็กและโดเมนมาตรฐานเพื่อป้องกัน Error
     return f"{user_id.strip().lower()}@traffic.com"
 
 def is_valid_userid(user_id):
-    if len(user_id) < 6: # ปรับเป็น < 6 ตามที่คุณต้องการ (หรือ <= 6)
-        return False, "❌ ชื่อผู้ใช้ (UserID) ต้องมีความยาวอย่างน้อย 6 ตัวอักษร"
+    if len(user_id) < 6:
+        return False, "❌ UserID ต้องมีความยาวอย่างน้อย 6 ตัวอักษร"
     if not re.match("^[a-zA-Z0-9]*$", user_id):
-        return False, "❌ ชื่อผู้ใช้ต้องเป็นภาษาอังกฤษหรือตัวเลขเท่านั้น (ห้ามเว้นวรรค/ภาษาไทย)"
+        return False, "❌ UserID ต้องเป็นภาษาอังกฤษหรือตัวเลขเท่านั้น"
     return True, ""
 
 def upload_to_drive(file, user_id):
@@ -42,7 +42,7 @@ def upload_to_drive(file, user_id):
         drive_service = init_drive()
         folder_id = st.secrets["GDRIVE_FOLDER_ID"]
         
-        # ย่อขนาดรูปภาพเพื่อประหยัดพื้นที่ 2TB
+        # ย่อขนาดรูปภาพ (Image Compression) เพื่อประหยัดพื้นที่ 2TB
         img = Image.open(file)
         img = img.convert("RGB")
         img.thumbnail((1024, 1024))
@@ -58,7 +58,7 @@ def upload_to_drive(file, user_id):
         uploaded_file = drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         return uploaded_file.get('id')
     except Exception as e:
-        st.error(f"เกิดข้อผิดพลาดในการอัปโหลดรูป: {e}")
+        st.error(f"เกิดข้อผิดพลาดในการอัปโหลด: {e}")
         return None
 
 # --- 3. ระบบ Authentication (Login/Signup) ---
@@ -68,74 +68,59 @@ def sign_in(u_id, u_pw):
     try:
         res = supabase.auth.sign_in_with_password({"email": email, "password": u_pw})
         if res.user:
-            # ดึงบทบาทจาก profiles
-            role_data = supabase.table("profiles").select("role").eq("id", res.user.id).single().execute()
+            # ดึงข้อมูล Role
+            role_query = supabase.table("profiles").select("role").eq("id", res.user.id).single().execute()
             st.session_state.user = res.user
-            st.session_state.role = role_data.data['role'] if role_data.data else "player"
+            st.session_state.role = role_query.data.get('role', 'player') if role_query.data else "player"
             st.success("เข้าสู่ระบบสำเร็จ!")
             st.rerun()
-    except Exception as e:
-        st.error("❌ ไม่พบชื่อผู้ใช้นี้ หรือรหัสผ่านไม่ถูกต้อง (ตรวจสอบตัวพิมพ์เล็ก-ใหญ่)")
+    except:
+        st.error("❌ ไม่พบชื่อผู้ใช้ หรือรหัสผ่านไม่ถูกต้อง")
 
 def sign_up(u_id, u_pw, name, s_id):
     valid, msg = is_valid_userid(u_id)
     if not valid:
         st.error(msg)
         return
-    
     email = format_email(u_id)
     try:
-        # 1. สมัครใน Auth
         res = supabase.auth.sign_up({"email": email, "password": u_pw})
         if res.user:
-            # 2. บันทึกข้อมูลลงตาราง profiles
             supabase.table("profiles").insert({
-                "id": res.user.id, 
-                "full_name": name, 
-                "student_id": s_id, 
-                "role": "player"
+                "id": res.user.id, "full_name": name, "student_id": s_id, "role": "player"
             }).execute()
-            st.success(f"✅ สมัครสำเร็จ! ใช้ชื่อ '{u_id.lower()}' เข้าใช้งานได้เลย")
-        else:
-            st.error("เกิดข้อผิดพลาดในการสมัคร กรุณาลองใหม่")
+            st.success(f"✅ สมัครสำเร็จ! ใช้ UserID: {u_id.lower()} ล็อกอินได้เลย")
     except Exception as e:
-        if "already registered" in str(e).lower():
-            st.error("❌ มีชื่อผู้ใช้นี้ในระบบแล้ว กรุณาตั้งชื่อใหม่")
-        else:
-            st.error(f"เกิดข้อผิดพลาด: {e}")
+        if "already registered" in str(e).lower(): st.error("❌ มีชื่อผู้ใช้นี้ในระบบแล้ว")
+        else: st.error(f"เกิดข้อผิดพลาด: {e}")
 
-# --- 4. หน้าจอหลัก (UI) ---
+# --- 4. ส่วนแสดงผลบนหน้าจอ (UI) ---
+
+
 
 if 'user' not in st.session_state:
     st.title("🚦 ระบบมินิเกมจราจร")
     tab_l, tab_s = st.tabs(["🔐 เข้าสู่ระบบ", "📝 สมัครสมาชิก"])
-    
     with tab_l:
-        l_uid = st.text_input("ชื่อผู้ใช้ (UserID)", key="l_uid")
-        l_pw = st.text_input("รหัสผ่าน", type="password", key="l_pw")
+        l_uid = st.text_input("UserID", key="login_uid")
+        l_pw = st.text_input("รหัสผ่าน", type="password", key="login_pass")
         if st.button("ตกลง เข้าสู่ระบบ", use_container_width=True):
-            if l_uid and l_pw:
-                sign_in(l_uid, l_pw)
-            else:
-                st.warning("กรุณากรอกข้อมูลให้ครบ")
-
+            if l_uid and l_pw: sign_in(l_uid, l_pw)
+            else: st.warning("กรุณากรอกข้อมูลให้ครบ")
     with tab_s:
-        st.info("💡 ชื่อผู้ใช้: ภาษาอังกฤษ/ตัวเลข มากกว่า 6 ตัว")
-        s_uid = st.text_input("ตั้งชื่อผู้ใช้", key="s_uid")
-        s_pw = st.text_input("ตั้งรหัสผ่าน", type="password", key="s_pw")
+        s_uid = st.text_input("ตั้ง UserID (อังกฤษ/เลข > 6 ตัว)", key="reg_uid")
+        s_pw = st.text_input("ตั้งรหัสผ่าน", type="password", key="reg_pass")
         s_name = st.text_input("ชื่อ-นามสกุลจริง")
         s_sid = st.text_input("รหัสนักเรียน")
         if st.button("ยืนยันการสมัคร", use_container_width=True):
-            if s_uid and s_pw and s_name and s_sid:
-                sign_up(s_uid, s_pw, s_name, s_sid)
-            else:
-                st.warning("กรุณากรอกข้อมูลให้ครบทุกช่อง")
+            if s_uid and s_pw and s_name and s_sid: sign_up(s_uid, s_pw, s_name, s_sid)
+            else: st.warning("กรุณากรอกข้อมูลให้ครบทุกช่อง")
 
 else:
     # --- เมื่อ Login สำเร็จ ---
     user_id_clean = st.session_state.user.email.split('@')[0]
     st.sidebar.title("Traffic Game")
-    st.sidebar.info(f"👤 สวัสดี: {user_id_clean}\n🎭 สถานะ: {st.session_state.role}")
+    st.sidebar.info(f"👤 ยินดีต้อนรับ: {user_id_clean}\n🎭 สถานะ: {st.session_state.role}")
     if st.sidebar.button("ออกจากระบบ"):
         supabase.auth.sign_out()
         st.session_state.clear()
@@ -148,60 +133,53 @@ else:
         
         with ad_tab1:
             st.subheader("สร้างภารกิจใหม่")
-            t_name = st.text_input("ชื่อภารกิจ เช่น ถ่ายรูปสวมหมวก")
-            t_desc = st.text_area("รายละเอียดภารกิจ")
-            t_points = st.number_input("คะแนนที่จะให้", min_value=1, value=10)
+            t_name = st.text_input("ชื่อภารกิจ")
+            t_desc = st.text_area("รายละเอียด")
+            t_pts = st.number_input("คะแนน", min_value=1, value=10)
             if st.button("ประกาศภารกิจ"):
-                supabase.table("daily_tasks").insert({
-                    "task_name": t_name, 
-                    "task_description": t_desc, 
-                    "points_to_give": t_points
-                }).execute()
-                st.success("ประกาศภารกิจสำเร็จ!")
+                supabase.table("daily_tasks").insert({"task_name": t_name, "task_description": t_desc, "points_to_give": t_pts}).execute()
+                st.success("ประกาศสำเร็จ!")
 
         with ad_tab2:
-            st.subheader("รายการที่นักเรียนส่งมา")
+            st.subheader("รายการรอตรวจ")
             pending = supabase.table("missions").select("*, profiles(full_name)").eq("status", "pending").execute()
-            if not pending.data:
-                st.write("ยังไม่มีงานรอตรวจในขณะนี้")
+            if not pending.data: st.write("ยังไม่มีงานใหม่")
             for p in pending.data:
                 with st.expander(f"งานของ: {p['profiles']['full_name']} - {p['mission_name']}"):
                     st.image(f"https://drive.google.com/thumbnail?id={p['image_drive_id']}&sz=w800")
                     c1, c2 = st.columns(2)
-                    if c1.button("✅ อนุมัติ (+แต้ม)", key=f"app_{p['id']}"):
+                    if c1.button("✅ อนุมัติ", key=f"a_{p['id']}"):
                         supabase.table("missions").update({"status": "approved"}).eq("id", p['id']).execute()
+                        # ให้คะแนนตามที่ตั้งไว้ในภารกิจ (หรือใช้ค่าคงที่)
                         supabase.rpc('increment_points', {'row_id': p['user_id'], 'amount': 10}).execute()
-                        st.success("อนุมัติและเพิ่มคะแนนสำเร็จ!")
                         st.rerun()
-                    if c2.button("❌ ไม่ผ่าน", key=f"rej_{p['id']}"):
+                    if c2.button("❌ ไม่ผ่าน", key=f"r_{p['id']}"):
                         supabase.table("missions").update({"status": "rejected"}).eq("id", p['id']).execute()
                         st.rerun()
 
     # --- หน้าจอผู้เล่น (Player) ---
     else:
-        st.title(f"👋 ยินดีต้อนรับ คุณ {user_id_clean}")
+        st.title(f"👋 สวัสดีคุณ {user_id_clean}")
         
-        # 1. การ์ดคะแนน
+        # ดึงข้อมูลโปรไฟล์แบบปลอดภัย (ป้องกัน KeyError)
         prof = supabase.table("profiles").select("*").eq("id", st.session_state.user.id).single().execute()
+        points = prof.data.get('total_points', 0) if prof.data else 0
+        rank = prof.data.get('rank_title', 'ผู้เริ่มต้น') if prof.data else 'ผู้เริ่มต้น'
+        
         col1, col2 = st.columns(2)
-        with col1:
-            st.metric("คะแนนสะสม", f"{prof.data['total_points']} 🪙")
-        with col2:
-            st.metric("ฉายา", prof.data['rank_title'])
+        col1.metric("คะแนนของคุณ", f"{points} 🪙")
+        col2.metric("ระดับ", rank)
 
-        # 2. ภารกิจปัจจุบัน
         st.divider()
         task = supabase.table("daily_tasks").select("*").eq("is_active", True).order("created_at", desc=True).limit(1).execute()
         
         if task.data:
             t = task.data[0]
-            st.info(f"🚩 **ภารกิจวันนี้:** {t['task_name']}\n\n{t['task_description']}")
-            
-            # เช็คว่าเคยส่งงานนี้ไปหรือยัง
-            img_file = st.camera_input("📸 ถ่ายรูปยืนยันภารกิจ")
+            st.info(f"🚩 **ภารกิจ:** {t['task_name']}\n\n{t['task_description']}")
+            img_file = st.camera_input("📸 ถ่ายรูปยืนยัน")
             if img_file:
-                if st.button("🚀 ส่งงานตรวจสอบ"):
-                    with st.spinner("กำลังส่งรูปเข้า Drive..."):
+                if st.button("🚀 ส่งงาน"):
+                    with st.spinner("กำลังอัปโหลด..."):
                         d_id = upload_to_drive(img_file, user_id_clean)
                         if d_id:
                             supabase.table("missions").insert({
@@ -209,6 +187,6 @@ else:
                                 "image_drive_id": d_id,
                                 "mission_name": t['task_name']
                             }).execute()
-                            st.success("ส่งงานสำเร็จแล้ว! รอแอดมินตรวจเพื่อรับแต้มนะ")
+                            st.success("ส่งเรียบร้อย! รอแอดมินตรวจนะ")
         else:
-            st.warning("ยังไม่มีภารกิจใหม่ในตอนนี้")
+            st.warning("ยังไม่มีภารกิจใหม่")
