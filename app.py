@@ -3,7 +3,7 @@ import streamlit as st
 # --- 1. ตั้งค่าหน้ากระดาษ ---
 st.set_page_config(page_title="Traffic Mini Game", page_icon="🚦", layout="centered")
 
-# --- 2. CSS เดิม (เน้นจัดกึ่งกลางทุกลูก และ ลบปุ่มลูกตา) ---
+# --- 2. CSS ขั้นเทพ (บังคับเป๊ะ 100% ไม่สนระบบเดิม) ---
 st.markdown("""
     <style>
         /* 1. พื้นหลังแอปสีเทาอ่อนแบบ Facebook */
@@ -31,7 +31,6 @@ st.markdown("""
             font-family: Arial, sans-serif !important;
             letter-spacing: -2px !important;
             margin: 0 !important;
-            text-align: center;
         }
         
         /* 5. หัวข้อรอง (สีดำ) */
@@ -41,23 +40,12 @@ st.markdown("""
             font-weight: 500 !important;
             margin-top: -10px !important;
             margin-bottom: 25px !important;
-            text-align: center;
         }
 
-        /* 6. กรอบสีขาว (จัดกึ่งกลาง) */
-        div[data-testid="stVerticalBlock"] > div:has(div.login-card-anchor) {
-            background-color: #ffffff !important;
-            padding: 30px !important;
-            border-radius: 12px !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
-            border: 1px solid #dddfe2 !important;
-            width: 100% !important;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+      
         }
 
-        /* 7. ช่องกรอกข้อมูล (Inputs) - บังคับสีดำ-ขาว กึ่งกลาง */
+        /* 7. ช่องกรอกข้อมูล (Inputs) - บังคับสีดำ-ขาว */
         input {
             color: #000000 !important;
             background-color: #ffffff !important;
@@ -67,28 +55,21 @@ st.markdown("""
             font-size: 16px !important;
             text-align: center !important;
         }
-        ::placeholder { color: #8d949e !important; text-align: center; }
+        ::placeholder { color: #8d949e !important; }
 
-        /* 8. ลบกล่องว่าง/Label ออกถาวร */
+        /* 8. **ลบกล่องว่างประหลาด (Label) ออกถาวร** */
         [data-testid="stWidgetLabel"] {
             display: none !important;
             height: 0 !important;
             margin: 0 !important;
         }
-        .stTextInput { margin-top: -15px !important; margin-bottom: 10px !important; width: 100%; }
+        .stTextInput { margin-top: -15px !important; margin-bottom: 10px !important; }
 
-        /* 9. **ฆ่าปุ่มลูกตา (Show password) ให้หายสาบสูญ 100%** */
+        /* 9. **ฆ่าปุ่มลูกตา (Show password) ให้หายสาบสูญ** */
         button[aria-label="Show password"], 
         .stTextInput div[data-baseweb="input"] button {
             display: none !important;
             visibility: hidden !important;
-        }
-
-        /* --- บังคับปุ่มทุกปุ่มให้จัดกึ่งกลาง --- */
-        div.stButton {
-            display: flex;
-            justify-content: center;
-            width: 100%;
         }
 
         /* 10. ปุ่มเข้าสู่ระบบ (สีฟ้าเข้ม) */
@@ -112,7 +93,6 @@ st.markdown("""
             display: block;
             margin: 15px 0;
             text-align: center;
-            width: 100%;
         }
 
         /* 12. เส้นคั่นบางๆ */
@@ -122,17 +102,11 @@ st.markdown("""
             width: 100%;
         }
 
-        /* 13. ปุ่มสร้างบัญชีใหม่ (สีเขียว กึ่งกลาง) */
-        .signup-container {
-            width: 100%;
-            display: flex;
-            justify-content: center;
-        }
+        /* 13. ปุ่มสร้างบัญชีใหม่ (สีเขียว) */
         .signup-container div.stButton > button {
             background-color: #42b72a !important;
             color: #ffffff !important;
             width: auto !important;
-            min-width: 180px;
             padding: 0 30px !important;
             margin: 0 auto !important;
             display: block !important;
@@ -156,7 +130,7 @@ with st.container():
     # ช่องรหัสผ่าน (ไม่มีลูกตา 100%)
     st.text_input("P", type="password", placeholder="รหัสผ่าน", label_visibility="collapsed", key="u_pw")
     
-    # ปุ่มเข้าสู่ระบบ (กึ่งกลาง)
+    # ปุ่มเข้าสู่ระบบ
     if st.button("เข้าสู่ระบบ", key="btn_login"):
         st.info("ระบบกำลังตรวจสอบ...")
 
@@ -166,7 +140,7 @@ with st.container():
     # เส้นคั่น
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     
-    # ปุ่มสร้างบัญชีใหม่ (กึ่งกลาง)
+    # ปุ่มสร้างบัญชีใหม่
     st.markdown('<div class="signup-container">', unsafe_allow_html=True)
     if st.button("สร้างบัญชีใหม่", key="btn_signup"):
         st.success("ไปหน้าสมัครสมาชิก")
