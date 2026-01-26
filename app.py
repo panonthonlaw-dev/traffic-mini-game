@@ -12,6 +12,16 @@ import base64
 
 # --- 1. ตั้งค่าหน้าเว็บ (ต้องอยู่บนสุดของคำสั่ง Streamlit ทั้งหมด) ---
 st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
+# --- 🆕 โค้ดซ่อน Topbar และ Footer ---
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            .stAppHeader {display: none;} /* สำหรับ Streamlit เวอร์ชั่นใหม่ๆ */
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
 
 # --- 2. การเชื่อมต่อระบบ (ต้องประกาศ supabase ก่อนจะเอาไปใช้เช็ก Login) ---
 try:
@@ -224,7 +234,7 @@ elif st.session_state.page == 'game':
         # --- 3. แสดงผล Header (Rank ซ้าย | Username ขวา) ---
         c_t, c_u = st.columns([0.6, 0.4])
         with c_t:
-            st.markdown(f"### Rankของท่าน {rank}")
+            st.markdown(f"### Rank {rank}")
         with c_u:
             st.markdown(f"<p style='text-align: right; margin-top: 10px;'>ยินดีตอนรับนักผจญภัย <b>{u['username']}</b></p>", unsafe_allow_html=True)
         
