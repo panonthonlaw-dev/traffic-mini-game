@@ -224,9 +224,9 @@ elif st.session_state.page == 'game':
         # --- 3. แสดงผล Header (Rank ซ้าย | Username ขวา) ---
         c_t, c_u = st.columns([0.6, 0.4])
         with c_t:
-            st.markdown(f"### 🏆 {rank}")
+            st.markdown(f"### Rankของท่าน {rank}")
         with c_u:
-            st.markdown(f"<p style='text-align: right; margin-top: 10px;'>👤 <b>{u['username']}</b></p>", unsafe_allow_html=True)
+            st.markdown(f"<p style='text-align: right; margin-top: 10px;'>ยินดีตอนรับนักผจญภัย <b>{u['username']}</b></p>", unsafe_allow_html=True)
         
         # --- 4. แสดงแถบ EXP และเส้นคั่น ---
         st.write(f"EXP รวม: {total_exp}")
