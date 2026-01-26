@@ -13,16 +13,17 @@ try:
     # Supabase
     supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     
-    # Google Drive (Fix InvalidPadding Error)
-    # แปลงข้อมูล Secret เป็น Dict เพื่อแก้ไข
+    # --- 🟢 จุดแก้บั๊ก Google Drive (InvalidPadding) ---
+    # 1. ดึงข้อมูลจาก Secrets มาแปลงเป็น Dictionary เพื่อให้แก้ไขค่าได้
     gcp_creds = dict(st.secrets["gcp_service_account"])
     
-    # 🟢 แก้ไขปัญหา \n ใน Private Key
+    # 2. สั่งเปลี่ยนตัวอักษร \\n ให้เป็น \n (ขึ้นบรรทัดใหม่) ของจริง
     gcp_creds["private_key"] = gcp_creds["private_key"].replace("\\n", "\n")
     
+    # 3. ดึง Folder ID
     DRIVE_FOLDER_ID = st.secrets["general"]["DRIVE_FOLDER_ID"]
     
-    # สร้าง Credential
+    # 4. สร้างการเชื่อมต่อ (Credential) ด้วยข้อมูลที่แก้แล้ว
     drive_creds = service_account.Credentials.from_service_account_info(
         gcp_creds, scopes=['https://www.googleapis.com/auth/drive.file']
     )
