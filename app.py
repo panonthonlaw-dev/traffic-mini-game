@@ -10,18 +10,18 @@ from datetime import datetime
 # --- 1. ตั้งค่าหน้าเว็บ ---
 st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
 
-# --- 2. ประกาศตัวแปร Session State (ต้องทำก่อนเพื่อกัน Error) ---
+# --- 2. ประกาศตัวแปร Session State ---
 if 'page' not in st.session_state: st.session_state.page = 'login'
 if 'user' not in st.session_state: st.session_state.user = None
 if 'selected_mission' not in st.session_state: st.session_state.selected_mission = None
 
-# --- 3. ระบบจดจำสถานะผ่าน URL (กันเด้งตอนรีเฟรช) ---
+# --- 3. ระบบจดจำสถานะผ่าน URL ---
 if "page" in st.query_params:
     st.session_state.page = st.query_params["page"]
 if "m_id" in st.query_params:
     st.session_state.selected_mission = int(st.query_params["m_id"])
 
-# --- 4. การเชื่อมต่อระบบ (Supabase & Google Drive) ---
+# --- 4. การเชื่อมต่อระบบ ---
 try:
     supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     gcp_info = dict(st.secrets["gcp_service_account"])
@@ -45,32 +45,26 @@ if "u" in st.query_params and st.session_state.user is None:
     except:
         pass
 
-# --- 5. CSS ปรับแต่งหน้าตา (จัดปุ่มเขียวจิ๋วและสถานะ) ---
+# --- 5. CSS ปรับแต่งหน้าตา ---
 st.markdown("""
     <style>
         .stApp { background-color: #f8f9fa !important; }
-        
-        /* ช่องกรอกข้อมูล */
         div[data-testid="stTextInput"] > div { background-color: white !important; border-radius: 10px !important; }
         input { color: #003366 !important; text-align: left !important; }
         label { color: #003366 !important; font-weight: bold !important; }
 
-        /* 🔵 ปุ่มหลัก สีฟ้า (ในฟอร์ม) */
         div[data-testid="stFormSubmitButton"] > button {
             background-color: #1877f2 !important; color: white !important;
             font-weight: bold !important; height: 50px !important; border-radius: 10px !important;
         }
 
-        /* 🟢 ปุ่มสีเขียว (สมัครสมาชิก/ยืนยัน) */
         div.stButton > button[kind="secondary"] {
             background-color: #42b72a !important; color: white !important;
             font-weight: bold !important; height: 50px !important; border-radius: 10px !important;
         }
 
-        /* 🔗 ลิงก์ HTML */
         .html-link { color: #1877f2 !important; text-decoration: underline !important; font-size: 15px; cursor: pointer; }
 
-        /* 🎨 🛑 ปุ่มจิ๋วขอบเขียวบาง (ตามที่พี่สั่ง) */
         .thin-btn-green div.stButton > button {
             background-color: transparent !important;
             color: #42b72a !important;
@@ -88,17 +82,15 @@ st.markdown("""
             color: white !important;
         }
 
-        /* สไตล์ตัวหนังสือสถานะชิดขวา */
         .status-right {
             font-size: 13px !important;
-            line-height: 30px; /* ให้สูงเท่าปุ่มพอดี */
+            line-height: 30px;
             text-align: right;
             font-weight: bold;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# ฟังก์ชันเปลี่ยนหน้า
 def go_to(page_name):
     current_u = st.query_params.get("u")
     st.query_params.clear()
@@ -127,7 +119,6 @@ if st.session_state.page == 'login':
                     if st.session_state.user.get('role') == 'admin': go_to('admin_dashboard')
                     else: go_to('game')
                 else: st.error("❌ ข้อมูลไม่ถูกต้อง")
-        
         st.markdown('<div style="text-align: center; margin-top: -10px;"><a href="./?page=forgot" target="_self" class="html-link">คุณลืมรหัสผ่านใช่ไหม</a></div>', unsafe_allow_html=True)
         st.write("---")
         if st.button("สร้างบัญชีใหม่", use_container_width=True, type="secondary"): go_to('signup')
@@ -185,7 +176,6 @@ elif st.session_state.page == 'game':
 
         for m in missions:
             is_done = m['id'] in done_ids
-            # 🏁 แบ่งคอลัมน์: ซ้าย 75% (ปุ่มจิ๋ว) | ขวา 25% (สถานะ)
             c1, c2 = st.columns([0.75, 0.25])
             with c1:
                 st.markdown('<div class="thin-btn-green">', unsafe_allow_html=True)
@@ -199,7 +189,7 @@ elif st.session_state.page == 'game':
                 st.markdown(f'<div class="status-right" style="color:{status_color};">{status_text}</div>', unsafe_allow_html=True)
             
     else:
-        # หน้าทำภารกิจ
+        # --- หน้าทำภารกิจ ---
         m_id = st.session_state.selected_mission
         m_data = supabase.table("missions").select("*").eq("id", m_id).single().execute().data
         st.markdown(f"<h2>{m_data['title']}</h2>", unsafe_allow_html=True)
@@ -209,16 +199,21 @@ elif st.session_state.page == 'game':
         st.markdown('</div>', unsafe_allow_html=True)
         
         st.info(f"💡 วิธีทำ: {m_data.get('description', 'ส่งรูปถ่ายกิจกรรม')}")
-        f = st.file_uploader("📸 แนบรูปถ่าย", type=['jpg','png','jpeg'])
-        if f and st.button("ยืนยันส่งงาน", type="secondary", use_container_width=True):
-            with st.spinner("กำลังอัปโหลด..."):
-                today = datetime.now().strftime("%Y-%m-%d")
-                filename = f"{u['student_id']}_m{m_id}_{today}.jpg"
-                meta = {'name': filename, 'parents': [DRIVE_FOLDER_ID]}
-                media = MediaIoBaseUpload(f, mimetype=f.type, resumable=True)
-                drive_service.files().create(body=meta, media_body=media).execute()
-                supabase.table("submissions").insert({"user_username": u['username'], "mission_id": m_id}).execute()
-                st.success("🎉 สำเร็จ!"); time.sleep(1); st.session_state.selected_mission = None; st.rerun()
+        
+        f = st.file_uploader("📸 แนบรูปถ่ายกิจกรรม", type=['jpg','png','jpeg'])
+        
+        # ✨ เพิ่มปุ่ม "ส่งภารกิจ" ตรงนี้ครับ!
+        if f:
+            st.image(f, caption="ตรวจสอบความถูกต้องก่อนส่ง", width=300)
+            if st.button("ส่งภารกิจ", type="secondary", use_container_width=True):
+                with st.spinner("กำลังส่งภารกิจ..."):
+                    today = datetime.now().strftime("%Y-%m-%d")
+                    filename = f"{u['student_id']}_m{m_id}_{today}.jpg"
+                    meta = {'name': filename, 'parents': [DRIVE_FOLDER_ID]}
+                    media = MediaIoBaseUpload(f, mimetype=f.type, resumable=True)
+                    drive_service.files().create(body=meta, media_body=media).execute()
+                    supabase.table("submissions").insert({"user_username": u['username'], "mission_id": m_id}).execute()
+                    st.success("🎉 ส่งภารกิจเรียบร้อยแล้ว!"); time.sleep(1.5); st.session_state.selected_mission = None; st.rerun()
 
     st.write("---")
     if st.button("ออกจากระบบ", use_container_width=True): 
