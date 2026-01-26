@@ -255,46 +255,48 @@ elif st.session_state.page == 'game':
         # 🛑 ส่วนส่งภารกิจแบบดักจับ Error ละเอียด
        # 🛑 ส่วนส่งภารกิจ (ฉบับกันเด้ง)
         # 🛑 ส่วนส่งภารกิจ (ฉบับแก้ไขสมบูรณ์)
-        if f:
-            if st.button("🚀 ยืนยันส่งภารกิจ", type="primary", use_container_width=True):
-                with st.spinner("กำลังส่งรูปเข้า Drive 2TB..."):
-                    try:
-                        # 1. เตรียมข้อมูลรูป
-                        today = datetime.now().strftime("%Y-%m-%d")
-                        filename = f"{u['student_id']}_m{m_id}_{today}.jpg"
-                        base64_img = base64.b64encode(f.getvalue()).decode('utf-8')
-                        
-                        # 2. ส่งไปที่ Apps Script URL (วาง URL ที่พี่ก๊อปมาตรงนี้)
-                        web_app_url = "ใส่_URL_ที่ก๊อปมาจาก_ขั้นตอนที่_2_ตรงนี้ครับ"
-                        
-                        payload = {
-                            "filename": filename,
-                            "mimetype": f.type,
-                            "base64": base64_img
-                        }
-                        
-                        response = requests.post(web_app_url, json=payload)
-                        result = response.json()
+        # แก้ในไฟล์ app.py ตรงส่วนส่งภารกิจ
+if f:
+    if st.button("🚀 ยืนยันส่งภารกิจ", type="primary", use_container_width=True):
+        with st.spinner("กำลังส่งรูปเข้า Drive 2TB ของคุณ..."):
+            try:
+                # 1. เตรียมข้อมูลรูป
+                today = datetime.now().strftime("%Y-%m-%d")
+                filename = f"{u['student_id']}_m{m_id}_{today}.jpg"
+                base64_img = base64.b64encode(f.getvalue()).decode('utf-8')
+                
+                # 2. วาง URL ที่พี่ก๊อปมาตรงนี้ครับ! 🛑
+                web_app_url = "https://script.google.com/macros/s/AKfycbyizcX69XMBeDCp1oyGR3hLuJ2i_n4YyBFhukyRT8399-R4FePPLS4kA5CwYrl1-yne/exec"
+                
+                payload = {
+                    "filename": filename,
+                    "mimetype": f.type,
+                    "base64": base64_img
+                }
+                
+                # ส่งรูปผ่านสะพาน (Apps Script)
+                response = requests.post(web_app_url, json=payload)
+                result = response.json()
 
-                        if result.get('status') == 'success':
-                            # 3. บันทึกลง Supabase
-                            supabase.table("submissions").insert({
-                                "user_username": u['username'],
-                                "mission_id": m_id,
-                                "status": "pending",
-                                "points": 0,
-                                "image_url": result['fileId'] # เก็บ ID ไฟล์ไว้ตรวจงาน
-                            }).execute()
+                if result.get('status') == 'success':
+                    # 3. บันทึก ID ไฟล์ลง Supabase เพื่อเอาไว้เปิดดูในหน้าแอดมิน
+                    supabase.table("submissions").insert({
+                        "user_username": u['username'],
+                        "mission_id": m_id,
+                        "status": "pending",
+                        "points": 0,
+                        "image_url": result['fileId'] # นี่คือรหัสรูปที่ได้จาก Google
+                    }).execute()
 
-                            st.success("🎉 ส่งภารกิจเข้า Drive 2TB สำเร็จ!")
-                            time.sleep(1.5)
-                            st.session_state.selected_mission = None
-                            st.rerun()
-                        else:
-                            st.error(f"🚨 Google แจ้งว่า: {result.get('message')}")
+                    st.success("🎉 ส่งงานเข้า Drive 2TB เรียบร้อยแล้ว!")
+                    time.sleep(1.5)
+                    st.session_state.selected_mission = None
+                    st.rerun()
+                else:
+                    st.error(f"🚨 Google บ่นว่า: {result.get('message')}")
 
-                    except Exception as e:
-                        st.error(f"🚨 เชื่อมต่อระบบอัปโหลดไม่ได้: {e}")
+            except Exception as e:
+                st.error(f"🚨 ระบบสะพานมีปัญหา: {e}")
     st.write("---")
     if st.button("ออกจากระบบ", use_container_width=True): 
         st.session_state.user = None
