@@ -485,20 +485,53 @@ elif st.session_state.page == 'bonus_game':
     st.markdown("<h2 style='text-align: center; color:#1877f2;'>🏃‍♂️ วิ่งเก็บหมวก...กระโดดหลบกรวย!</h2>", unsafe_allow_html=True)
     st.write("---")
 
-    # ตัวเกม HTML + JavaScript
-    game_html = """
+        game_html = """
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <style>
-            body { margin: 0; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; background: #f0f2f6; }
-            #game-container { position: relative; width: 600px; height: 300px; background: #87CEEB; border: 3px solid #003366; border-radius: 10px; overflow: hidden; touch-action: manipulation; }
-            #road { position: absolute; bottom: 0; width: 100%; height: 40px; background: #555; border-top: 2px solid #fff; }
-            #ui { position: absolute; top: 10px; left: 10px; font-size: 18px; font-weight: bold; color: #003366; z-index: 5; background: rgba(255,255,255,0.7); padding: 5px 10px; border-radius: 10px; }
-            #game-over { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 10px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 10; border: 2px solid red; }
-            canvas { display: block; }
-            button { padding: 8px 20px; background: #1877f2; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+            body { 
+                margin: 0; 
+                display: flex; 
+                flex-direction: column; 
+                align-items: center; 
+                font-family: sans-serif; 
+                background: transparent; 
+                touch-action: none; /* ป้องกันการเลื่อนหน้าจอไปมาตอนกดเล่นเกม */
+            }
+            #game-container { 
+                position: relative; 
+                width: 95vw; /* กว้าง 95% ของหน้าจอ */
+                max-width: 600px; /* แต่กว้างสุดไม่เกิน 600px (สำหรับคอม) */
+                aspect-ratio: 2 / 1; /* รักษาอัตราส่วน กว้าง 2 สูง 1 เสมอ */
+                background: #87CEEB; 
+                border: 3px solid #003366; 
+                border-radius: 10px; 
+                overflow: hidden; 
+            }
+            #ui { 
+                position: absolute; top: 10px; left: 10px; 
+                font-size: 14px; font-weight: bold; color: #003366; 
+                z-index: 5; background: rgba(255,255,255,0.7); 
+                padding: 4px 8px; border-radius: 8px; 
+            }
+            #game-over { 
+                display: none; position: absolute; top: 50%; left: 50%; 
+                transform: translate(-50%, -50%); background: white; 
+                padding: 15px; border-radius: 10px; text-align: center; 
+                box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 10; width: 80%;
+            }
+            canvas { 
+                display: block; 
+                width: 100%; /* ยืดขยายตาม container */
+                height: 100%; 
+            }
+            button { 
+                padding: 10px 20px; background: #1877f2; color: white; 
+                border: none; border-radius: 5px; font-size: 16px; margin-top: 10px; 
+            }
         </style>
     </head>
     <body>
@@ -507,7 +540,7 @@ elif st.session_state.page == 'bonus_game':
             <canvas id="gameCanvas" width="600" height="300"></canvas>
             <div id="game-over">
                 <h2 style="color:red; margin:0;">😵 พลาดท่าชนกรวย!</h2>
-                <p id="final-score" style="font-size:18px; margin:10px 0;"></p>
+                <p id="final-score" style="font-size:16px; margin:10px 0;"></p>
                 <button onclick="resetGame()">เล่นใหม่อีกครั้ง</button>
             </div>
         </div>
@@ -524,11 +557,15 @@ elif st.session_state.page == 'bonus_game':
             let obstacles = [], helmets = [];
 
             function spawnObstacle() {
-                if (frame % 90 === 0) obstacles.push({ x: 600, y: 230, w: 30, h: 40, type: '🚧' });
+                if (frame % 90 === 0) {
+                    obstacles.push({ x: 600, y: 230, w: 30, h: 40, type: '🚧' });
+                }
             }
 
             function spawnHelmet() {
-                if (frame % 150 === 0) helmets.push({ x: 600, y: 120 + Math.random()*50, w: 35, h: 35, type: '🪖' });
+                if (frame % 150 === 0) {
+                    helmets.push({ x: 600, y: 120 + Math.random()*60, w: 35, h: 35, type: '🪖' });
+                }
             }
 
             function resetGame() {
@@ -542,7 +579,7 @@ elif st.session_state.page == 'bonus_game':
                 if (isGameOver) return;
                 ctx.clearRect(0, 0, 600, 300);
                 frame++; score += 0.1;
-                if (frame % 1000 === 0) speed += 0.5;
+                if (frame % 800 === 0) speed += 0.5;
 
                 // Player logic
                 player.dy += player.gravity;
@@ -558,9 +595,11 @@ elif st.session_state.page == 'bonus_game':
                     o.x -= speed;
                     ctx.font = "30px Arial";
                     ctx.fillText(o.type, o.x, o.y + 30);
-                    if (o.x < player.x + 30 && o.x + 20 > player.x && o.y < player.y + 40 && o.y + 30 > player.y) {
+                    // Collision
+                    if (o.x < player.x + 25 && o.x + 20 > player.x && o.y < player.y + 40 && o.y + 30 > player.y) {
                         isGameOver = true;
                     }
+                    if (o.x < -50) obstacles.splice(i, 1);
                 });
 
                 // Helmets
@@ -569,9 +608,10 @@ elif st.session_state.page == 'bonus_game':
                     h.x -= speed;
                     ctx.font = "30px Arial";
                     ctx.fillText(h.type, h.x, h.y + 30);
-                    if (h.x < player.x + 30 && h.x + 20 > player.x && h.y < player.y + 40 && h.y + 30 > player.y) {
+                    if (h.x < player.x + 35 && h.x + 20 > player.x && h.y < player.y + 40 && h.y + 30 > player.y) {
                         helmets.splice(i, 1); score += 50;
                     }
+                    if (h.x < -50) helmets.splice(i, 1);
                 });
 
                 if (score > highScore) highScore = Math.floor(score);
@@ -579,21 +619,32 @@ elif st.session_state.page == 'bonus_game':
 
                 if (isGameOver) {
                     gameOverUI.style.display = 'block';
-                    finalScoreUI.innerHTML = `คะแนนที่ทำได้: ${Math.floor(score)}`;
+                    finalScoreUI.innerHTML = `คะแนน: ${Math.floor(score)}`;
                 } else {
                     requestAnimationFrame(animate);
                 }
             }
 
-            window.addEventListener('keydown', (e) => { if (e.code === 'Space' && player.grounded) { player.dy = player.jump; player.grounded = false; } });
-            canvas.addEventListener('touchstart', () => { if (player.grounded) { player.dy = player.jump; player.grounded = false; } });
-            canvas.addEventListener('mousedown', () => { if (player.grounded) { player.dy = player.jump; player.grounded = false; } });
+            // รองรับทั้ง Spacebar, คลิกเมาส์ และ แตะหน้าจอ
+            const handleJump = (e) => {
+                if (e.type === 'keydown' && e.code !== 'Space') return;
+                if (player.grounded && !isGameOver) {
+                    player.dy = player.jump;
+                    player.grounded = false;
+                }
+                if (e.cancelable) e.preventDefault(); // กันหน้าจอเลื่อน
+            };
+
+            window.addEventListener('keydown', handleJump);
+            window.addEventListener('touchstart', handleJump, { passive: false });
+            window.addEventListener('mousedown', handleJump);
 
             animate();
         </script>
     </body>
     </html>
     """
+
     
     import streamlit.components.v1 as components
     components.html(game_html, height=450)
