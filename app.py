@@ -10,7 +10,20 @@ import io
 import requests
 import base64
 import io
+# --- 1. ตั้งค่าพื้นฐาน ---
+if 'user' not in st.session_state:
+    st.session_state.user = None
 
+# --- 2. ระบบ Auto-Login จาก URL (แก้ปัญหา Refresh แล้วเด้ง) ---
+# เช็กว่าใน URL มีการฝากชื่อผู้ใช้ไว้ไหม (เช่น ?user=admin1)
+current_user_url = st.query_params.get("user")
+
+if st.session_state.user is None and current_user_url:
+    # ถ้าในเครื่องลืม แต่ใน URL มีชื่ออยู่ ให้ไปดึงข้อมูลจาก Supabase มาใหม่
+    user_data = supabase.table("users").select("*").eq("username", current_user_url).execute().data
+    if user_data:
+        st.session_state.user = user_data[0]
+        st.session_state.page = 'admin_dashboard' if user_data[0]['role'] == 'admin' else 'game'
 
 
 # --- 1. ตั้งค่าหน้าเว็บ ---
@@ -298,10 +311,14 @@ elif st.session_state.page == 'game':
                     except Exception as e:
                         st.error(f"🚨 ระบบส่งงานขัดข้อง: {e}")
     st.write("---")
-    if st.button("ออกจากระบบ", use_container_width=True): 
-        st.session_state.user = None
-        st.query_params.clear()
-        go_to('login')
+    if st.button("🚪 ออกจากระบบ"):
+    # 1. ล้างค่าใน Session
+    st.session_state.user = None
+    # 2. ล้างค่าใน URL (ลบ ?u=...) 🛑 สำคัญมาก
+    st.query_params.clear() 
+    # 3. กลับหน้าแรก
+    st.session_state.page = 'login'
+    st.rerun()
 
 elif st.session_state.page == 'admin_dashboard':
     # --- 1. ระบบความปลอดภัย (Security) ---
