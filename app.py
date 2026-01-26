@@ -67,6 +67,23 @@ st.markdown("""
         .html-link:hover { color: #0056b3 !important; }
         
         .status-text { font-size: 14px; font-weight: bold; }
+/* 🔗 เพิ่มตัวนี้ต่อท้ายในช่องหมายเลข 4 ของพี่ครับ */
+        .mission-link-btn button {
+            background: none !important;
+            border: none !important;
+            padding: 0 !important;
+            color: #1877f2 !important;
+            text-decoration: underline !important;
+            font-size: 18px !important;
+            cursor: pointer !important;
+            display: inline !important;
+            box-shadow: none !important;
+            font-weight: normal !important;
+        }
+        .mission-link-btn button:hover {
+            color: #0056b3 !important;
+            background: none !important;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -179,13 +196,14 @@ elif st.session_state.page == 'game':
             is_done = m['id'] in done_ids
             status = '<span style="color:#42b72a;">(✅ ส่งแล้ว)</span>' if is_done else '<span style="color:#888;">(⭕ รอดำเนินการ)</span>'
             
-            # ✨ ลิงก์ HTML รายชื่อภารกิจ (ไม่ใช่ปุ่ม)
-            st.markdown(f"""
-                <div style="margin-bottom: 15px; font-size: 18px;">
-                    <a href="./?page=game&m_id={m['id']}" target="_self" class="html-link">📍 {m['title']}</a> 
-                    {status}
-                </div>
-            """, unsafe_allow_html=True)
+            # --- แก้ไขจากตรงนี้ ---
+            # ใช้ st.button ที่แต่งให้เหมือนลิงก์ เพื่อไม่ให้ Session หลุดตอนเปลี่ยนหน้า
+            st.markdown('<div class="mission-link-btn">', unsafe_allow_html=True)
+            if st.button(f"📍 {m['title']}", key=f"m_link_{m['id']}"):
+                st.session_state.selected_mission = m['id']
+                st.rerun() # สั่งรีรันภายในแอป (เบราว์เซอร์ไม่รีเฟรช ข้อมูล Login ไม่หาย)
+            st.markdown(f' {status} </div>', unsafe_allow_html=True)
+            # ---------------------
             
     else:
         m_id = st.session_state.selected_mission
