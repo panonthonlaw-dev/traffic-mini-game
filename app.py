@@ -5,7 +5,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import time
 
-# --- 1. ตั้งค่าหน้าเวป ---
+# --- 1. ตั้งค่าพื้นฐาน ---
 st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
 
 # --- 2. การเชื่อมต่อระบบ ---
@@ -22,13 +22,13 @@ except Exception as e:
     st.error(f"❌ ระบบเชื่อมต่อไม่ได้: {e}")
     st.stop()
 
-# --- 3. CSS ฉบับ Nuclear Option (ปรับปรุงจากตัวที่พี่ใช้ได้) ---
+# --- 3. CSS ฉบับ Nuclear Option (เพิ่มสไตล์ตัวหนังสือลืมรหัส) ---
 st.markdown("""
     <style>
         /* พื้นหลังเทาขาว */
         .stApp { background-color: #f8f9fa !important; }
 
-        /* ✅ จัดกรอบขาว: ครอบทั้งช่อง Input และ ลูกตา */
+        /* จัดกรอบขาว: ครอบทั้งช่อง Input และ ลูกตา */
         div[data-testid="stTextInput"] > div {
             background-color: white !important;
             border: 1px solid #dcdfe3 !important;
@@ -36,7 +36,7 @@ st.markdown("""
             padding: 2px !important;
         }
 
-        /* ✅ ตัวหนังสือ: น้ำเงินเข้ม (#003366) และ ชิดซ้าย */
+        /* ตัวหนังสือ: น้ำเงินเข้ม (#003366) และ ชิดซ้าย */
         input {
             color: #003366 !important;
             -webkit-text-fill-color: #003366 !important;
@@ -49,13 +49,13 @@ st.markdown("""
         /* ชื่อหัวข้อช่องกรอก */
         label { color: #003366 !important; font-weight: bold !important; }
 
-        /* ✅ ลูกตา: บังคับให้อยู่ในกรอบขาว และเป็นสีฟ้า */
+        /* ลูกตา: บังคับให้อยู่ในกรอบขาว และเป็นสีฟ้า */
         button[data-testid="stTextInputPasswordToggle"] {
             color: #1877f2 !important;
             background-color: transparent !important;
         }
 
-        /* 🔵 ปุ่มเข้าสู่ระบบ: บังคับสีฟ้า */
+        /* 🔵 ปุ่มเข้าสู่ระบบ: สีฟ้า */
         div[data-testid="stFormSubmitButton"] > button {
             background-color: #1877f2 !important;
             color: white !important;
@@ -66,7 +66,7 @@ st.markdown("""
             border-radius: 10px !important;
         }
 
-        /* 🟢 ปุ่มสร้างบัญชีใหม่: ใช้ kind="secondary" ตามที่พี่คอนเฟิร์มว่าเวิร์ก */
+        /* 🟢 ปุ่มสร้างบัญชีใหม่: สีเขียว (kind="secondary") */
         div.stButton > button[kind="secondary"] {
             background-color: #42b72a !important;
             color: white !important;
@@ -77,9 +77,14 @@ st.markdown("""
             border-radius: 10px !important;
         }
         
-        div.stButton > button[kind="secondary"]:hover {
-            background-color: #369622 !important;
-            color: white !important;
+        /* 🔵 ข้อความลืมรหัสผ่าน: สีฟ้าตัวเล็ก */
+        .forgot-text {
+            color: #1877f2;
+            font-size: 13px;
+            text-align: center;
+            margin-top: -10px;
+            margin-bottom: 10px;
+            font-family: sans-serif;
         }
         
         /* สไตล์ Card ภารกิจ */
@@ -117,13 +122,16 @@ if st.session_state.page == 'login':
                     go_to('game')
                 else: st.error("❌ ข้อมูลไม่ถูกต้อง")
 
+        # ✨ เพิ่มข้อความระบุลืมรหัสผ่าน (สีฟ้าตัวเล็ก)
+        st.markdown('<p class="forgot-text">คุณลืมรหัสผ่านใช่ไหม</p>', unsafe_allow_html=True)
+
         st.write("---")
         
-        # 🟢 ปุ่มสร้างบัญชีใหม่ (ใช้ type="secondary" เพื่อให้แมตช์กับ CSS kind="secondary")
+        # 🟢 ปุ่มสร้างบัญชีใหม่
         if st.button("สร้างบัญชีใหม่", use_container_width=True, type="secondary"):
             go_to('signup')
 
-# 🟢 หน้าสมัครสมาชิก
+# 🟢 หน้าสมัครสมาชิก (คงเดิม)
 elif st.session_state.page == 'signup':
     st.markdown("<h2 style='text-align: center; color: #003366;'>สมัครสมาชิก</h2>", unsafe_allow_html=True)
     _, col, _ = st.columns([1, 4, 1])
@@ -144,10 +152,9 @@ elif st.session_state.page == 'signup':
 # 🎮 หน้าหลัก/ภารกิจ
 elif st.session_state.page == 'game':
     u = st.session_state.user
-    st.markdown(f"<h4 style='text-align: center; color: #003366;'>ยินดีต้อนรับคุณ {u['fullname']} 👋</h4>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='text-align: center; color: #003366;'>สวัสดีคุณ {u['fullname']}</h3>", unsafe_allow_html=True)
     _, col, _ = st.columns([1, 5, 1])
     with col:
-        # แสดงภารกิจแบบการ์ด
         st.markdown('<div class="mission-card"><b>ภารกิจที่ 1: ตรวจเช็คหมวกกันน็อก</b></div>', unsafe_allow_html=True)
         if st.button("ออกจากระบบ", use_container_width=True, type="secondary"):
             st.session_state.user = None
