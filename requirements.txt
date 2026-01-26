@@ -2,4 +2,4 @@ streamlit
 supabase
 google-api-python-client
 google-auth
-cryptography>=42.0.0
+cryptography
