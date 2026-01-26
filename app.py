@@ -67,30 +67,7 @@ st.markdown("""
         .html-link:hover { color: #0056b3 !important; }
         
         .status-text { font-size: 14px; font-weight: bold; }
-/* 🔗 ล้างคราบปุ่มให้เหลือแต่ตัวหนังสือลิงก์ 100% */
-        .mission-link-btn button {
-            background: none !important;
-            border: none !important;
-            padding: 0 !important;
-            color: #1877f2 !important;
-            text-decoration: underline !important;
-            font-size: 18px !important;
-            cursor: pointer !important;
-            display: inline !important;
-            box-shadow: none !important;
-            font-weight: normal !important;
-            height: auto !important;
-            min-height: auto !important;
-        }
-        .mission-link-btn button:hover {
-            color: #0056b3 !important;
-            background: none !important;
-        }
-        .mission-link-btn button:active, .mission-link-btn button:focus {
-            background: none !important;
-            color: #1877f2 !important;
-            box-shadow: none !important;
-        }
+
     </style>
 """, unsafe_allow_html=True)
 
