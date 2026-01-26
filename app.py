@@ -240,12 +240,9 @@ elif st.session_state.page == 'game':
 
     st.write("---")
     if st.button("ออกจากระบบ", use_container_width=True): 
-    st.session_state.user = None
-    
-    # ✨ เพิ่มบรรทัดนี้: ล้างชื่อออกจาก URL ให้สะอาด
-    st.query_params.clear() 
-    
-    go_to('login')
+        st.session_state.user = None
+        st.query_params.clear() 
+        go_to('login')
 
 # 🛠️ หน้าหลังบ้าน (Admin)
 elif st.session_state.page == 'admin_dashboard':
