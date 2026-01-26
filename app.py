@@ -47,22 +47,7 @@ st.markdown("""
             height: 48px !important;
         }
 
-        /* 🛑 แก้ไข: ปุ่มลืมรหัสผ่าน ให้เป็น "ตัวอักษรเพียว ๆ" */
-        .forgot-text-link button {
-            background: none !important;
-            border: none !important;
-            padding: 0 !important;
-            color: #1877f2 !important;
-            text-decoration: none !important;
-            box-shadow: none !important;
-            display: inline !important;
-            height: auto !important;
-            min-height: unset !important;
-            font-size: 14px !important;
-        }
-        .forgot-text-link button:hover {
-            text-decoration: underline !important;
-            background: none !important;
+
         }
 
         /* 🟢 แก้ไข: ปุ่มสร้างบัญชีใหม่ (สีเขียว) */
