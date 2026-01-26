@@ -10,11 +10,23 @@ from datetime import datetime
 # --- 1. ตั้งค่าหน้าเว็บและการควบคุมหน้าจอผ่าน URL (Query Params) ---
 st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
 
-# ดักจับการคลิก HTML Link
+# ดักจับการคลิก HTML Link และสถานะหน้าจอ
 if "page" in st.query_params:
     st.session_state.page = st.query_params["page"]
+
 if "m_id" in st.query_params:
     st.session_state.selected_mission = int(st.query_params["m_id"])
+
+# ✨ ระบบจดจำผู้ใช้: ถ้าหน้าเว็บรีเฟรช แต่ยังมี ?u=... อยู่บน URL ให้ล็อกอินคืนให้ทันที
+if "u" in st.query_params and st.session_state.user is None:
+    u_url = st.query_params["u"]
+    try:
+        # ดึงข้อมูลผู้ใช้จาก Supabase กลับมาใส่ใน Session State
+        user_res = supabase.table("users").select("*").eq("username", u_url).execute()
+        if user_res.data:
+            st.session_state.user = user_res.data[0]
+    except:
+        pass
 
 # --- 2. การจัดการ Session State ---
 if 'page' not in st.session_state: st.session_state.page = 'login'
@@ -80,6 +92,7 @@ def go_to(page_name):
 # --- 5. การแสดงผลหน้าจอ ---
 
 # 🔵 หน้า LOGIN
+
 if st.session_state.page == 'login':
     st.markdown("<h1 style='text-align: center; color:#1877f2; margin-bottom:0;'>traffic game</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #003366; font-weight: bold;'>เล่นเปลี่ยนรอด</p>", unsafe_allow_html=True)
@@ -89,13 +102,24 @@ if st.session_state.page == 'login':
         with st.form("login_form"):
             u = st.text_input("Username", placeholder="ระบุชื่อผู้ใช้")
             p = st.text_input("Password", placeholder="ระบุรหัสผ่าน", type="password")
+            
             if st.form_submit_button("เข้าสู่ระบบ", use_container_width=True):
                 res = supabase.table("users").select("*").eq("username", u).execute()
+                
+                # เช็คว่ารหัสผ่านถูกต้อง
                 if res.data and res.data[0]['password'] == p:
                     st.session_state.user = res.data[0]
-                    if st.session_state.user.get('role') == 'admin': go_to('admin_dashboard')
-                    else: go_to('game')
-                else: st.error("❌ ข้อมูลไม่ถูกต้อง")
+                    
+                    # ✨ แทรกบรรทัดนี้ลงไปเลยครับ!
+                    # เพื่อสั่งให้ URL จำชื่อผู้ใช้ไว้ (เช่น .../?u=somchai)
+                    st.query_params["u"] = u 
+                    
+                    if st.session_state.user.get('role') == 'admin': 
+                        go_to('admin_dashboard')
+                    else: 
+                        go_to('game')
+                else: 
+                    st.error("❌ ข้อมูลไม่ถูกต้อง")
         
         # ✨ ลิงก์ HTML "ลืมรหัสผ่าน" (อยู่กึ่งกลาง ไม่ใช่ปุ่ม)
         st.markdown("""
@@ -182,12 +206,12 @@ elif st.session_state.page == 'game':
             
             # --- แก้ไขจากตรงนี้ ---
             # ใช้ st.button ที่แต่งให้เหมือนลิงก์ เพื่อไม่ให้ Session หลุดตอนเปลี่ยนหน้า
-            st.markdown('<div class="mission-link-btn">', unsafe_allow_html=True)
-            if st.button(f"📍 {m['title']}", key=f"m_link_{m['id']}"):
-                st.session_state.selected_mission = m['id']
-                st.rerun() # สั่งรีรันภายในแอป (เบราว์เซอร์ไม่รีเฟรช ข้อมูล Login ไม่หาย)
-            st.markdown(f' {status} </div>', unsafe_allow_html=True)
-            # ---------------------
+            st.markdown(f"""
+            <div style="margin-bottom: 15px; font-size: 18px;">
+                <a href="./?page=game&m_id={m['id']}&u={u['username']}" target="_self" class="html-link">📍 {m['title']}</a>
+                {status}
+            </div>
+            """, unsafe_allow_html=True)
             
     else:
         m_id = st.session_state.selected_mission
@@ -216,8 +240,12 @@ elif st.session_state.page == 'game':
 
     st.write("---")
     if st.button("ออกจากระบบ", use_container_width=True): 
-        st.session_state.user = None
-        go_to('login')
+    st.session_state.user = None
+    
+    # ✨ เพิ่มบรรทัดนี้: ล้างชื่อออกจาก URL ให้สะอาด
+    st.query_params.clear() 
+    
+    go_to('login')
 
 # 🛠️ หน้าหลังบ้าน (Admin)
 elif st.session_state.page == 'admin_dashboard':
