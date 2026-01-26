@@ -280,7 +280,7 @@ elif st.session_state.page == 'game':
         # 2. แล้วค่อยเช็ก if f: 
         if f is not None:
             if st.button("🚀 ยืนยันส่งภารกิจ", type="primary", use_container_width=True):
-                with st.spinner("กำลังส่งรูปเข้า Drive 2TB..."):
+                with st.spinner("กำลังส่งภารกิจ นักผจญภัยกรุณารอสักครู"):
                     try:
                         import requests
                         import base64
@@ -312,7 +312,7 @@ elif st.session_state.page == 'game':
                                 "image_url": result['fileId'] # เก็บ ID ไฟล์ไว้ดูในหน้าแอดมิน
                             }).execute()
 
-                            st.success("🎉 ส่งงานเรียบร้อย! ใช้พื้นที่ 2TB ของพี่คุ้มแน่นอน")
+                            st.success("🎉 ภารกิจถูกส่งแล้วรอตรวจสอบโดยGameMaster")
                             time.sleep(1.5)
                             st.session_state.selected_mission = None
                             st.rerun()
@@ -336,8 +336,8 @@ elif st.session_state.page == 'admin_dashboard':
         st.session_state.page = 'login'
         st.rerun()
     
-    st.title("👨‍🏫 ระบบจัดการหลังบ้าน (Admin)")
-    st.markdown(f"ผู้ดูแลระบบ: **{st.session_state.user['fullname']}**")
+    st.title("👨‍🏫 ระบบตรวจภาจกิจและมอบหมายภารกิจ (Guild")
+    st.markdown(f"Game Master: **{st.session_state.user['fullname']}**")
     st.write("---")
 
     # แยกส่วนการทำงานเป็น 2 Tabs
@@ -350,7 +350,7 @@ elif st.session_state.page == 'admin_dashboard':
         # ส่วนหัวและปุ่มดึงข้อมูลใหม่
         col_title, col_ref = st.columns([0.7, 0.3])
         with col_title:
-            st.subheader("รายการที่นักเรียนส่งมา")
+            st.subheader("ภารกิจที่รอตรวจสอบ")
         with col_ref:
             if st.button("🔄 ดึงข้อมูลล่าสุด", use_container_width=True):
                 st.rerun()
@@ -367,7 +367,7 @@ elif st.session_state.page == 'admin_dashboard':
             pending_subs = []
 
         if not pending_subs:
-            st.info("✨ ตอนนี้ไม่มีงานค้างตรวจแล้วครับคุณครู")
+            st.info("✨ ภารกิจตรวจสอบครบแล้ว")
         else:
             st.write(f"พบทั้งหมด {len(pending_subs)} รายการ")
             for sub in pending_subs:
