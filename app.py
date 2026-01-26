@@ -242,6 +242,9 @@ elif st.session_state.page == 'game':
         st.write(f"EXP รวม: {total_exp}")
         st.progress(min(progress, 1.0))
         st.write("---")
+        if st.button("🎮 เล่นมินิเกมแก้เครียด"):
+    st.session_state.page = 'bonus_game'
+    st.rerun()
 
         # --- 5. รายการภารกิจ (เริ่มดึงข้อมูลต่อจากนี้) ---
         missions = supabase.table("missions").select("*").eq("is_active", True).execute().data
@@ -475,3 +478,131 @@ elif st.session_state.page == 'admin_dashboard':
         st.session_state.user = None
         st.query_params.clear()
         go_to('login')
+# =========================================================
+# 🎮 หน้า BONUS GAME: วิ่งสู้ฟัดล่าหมวกกันน็อก (วางล่างสุดของไฟล์)
+# =========================================================
+elif st.session_state.page == 'bonus_game':
+    st.markdown("<h2 style='text-align: center; color:#1877f2;'>🏃‍♂️ วิ่งเก็บหมวก...กระโดดหลบกรวย!</h2>", unsafe_allow_html=True)
+    st.write("---")
+
+    # ตัวเกม HTML + JavaScript
+    game_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body { margin: 0; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; background: #f0f2f6; }
+            #game-container { position: relative; width: 600px; height: 300px; background: #87CEEB; border: 3px solid #003366; border-radius: 10px; overflow: hidden; touch-action: manipulation; }
+            #road { position: absolute; bottom: 0; width: 100%; height: 40px; background: #555; border-top: 2px solid #fff; }
+            #ui { position: absolute; top: 10px; left: 10px; font-size: 18px; font-weight: bold; color: #003366; z-index: 5; background: rgba(255,255,255,0.7); padding: 5px 10px; border-radius: 10px; }
+            #game-over { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 10px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 10; border: 2px solid red; }
+            canvas { display: block; }
+            button { padding: 8px 20px; background: #1877f2; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        </style>
+    </head>
+    <body>
+        <div id="game-container">
+            <div id="ui">Score: 0 | High: 0</div>
+            <canvas id="gameCanvas" width="600" height="300"></canvas>
+            <div id="game-over">
+                <h2 style="color:red; margin:0;">😵 พลาดท่าชนกรวย!</h2>
+                <p id="final-score" style="font-size:18px; margin:10px 0;"></p>
+                <button onclick="resetGame()">เล่นใหม่อีกครั้ง</button>
+            </div>
+        </div>
+
+        <script>
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const ui = document.getElementById('ui');
+            const gameOverUI = document.getElementById('game-over');
+            const finalScoreUI = document.getElementById('final-score');
+
+            let score = 0, highScore = 0, isGameOver = false, frame = 0, speed = 5;
+            let player = { x: 50, y: 210, w: 40, h: 50, dy: 0, jump: -12, gravity: 0.7, grounded: false };
+            let obstacles = [], helmets = [];
+
+            function spawnObstacle() {
+                if (frame % 90 === 0) obstacles.push({ x: 600, y: 230, w: 30, h: 40, type: '🚧' });
+            }
+
+            function spawnHelmet() {
+                if (frame % 150 === 0) helmets.push({ x: 600, y: 120 + Math.random()*50, w: 35, h: 35, type: '🪖' });
+            }
+
+            function resetGame() {
+                score = 0; speed = 5; frame = 0; obstacles = []; helmets = [];
+                player.y = 210; player.dy = 0; isGameOver = false;
+                gameOverUI.style.display = 'none';
+                animate();
+            }
+
+            function animate() {
+                if (isGameOver) return;
+                ctx.clearRect(0, 0, 600, 300);
+                frame++; score += 0.1;
+                if (frame % 1000 === 0) speed += 0.5;
+
+                // Player logic
+                player.dy += player.gravity;
+                player.y += player.dy;
+                if (player.y > 210) { player.y = 210; player.dy = 0; player.grounded = true; }
+
+                ctx.font = "45px Arial";
+                ctx.fillText("🏃‍♂️", player.x, player.y + 40);
+
+                // Obstacles
+                spawnObstacle();
+                obstacles.forEach((o, i) => {
+                    o.x -= speed;
+                    ctx.font = "30px Arial";
+                    ctx.fillText(o.type, o.x, o.y + 30);
+                    if (o.x < player.x + 30 && o.x + 20 > player.x && o.y < player.y + 40 && o.y + 30 > player.y) {
+                        isGameOver = true;
+                    }
+                });
+
+                // Helmets
+                spawnHelmet();
+                helmets.forEach((h, i) => {
+                    h.x -= speed;
+                    ctx.font = "30px Arial";
+                    ctx.fillText(h.type, h.x, h.y + 30);
+                    if (h.x < player.x + 30 && h.x + 20 > player.x && h.y < player.y + 40 && h.y + 30 > player.y) {
+                        helmets.splice(i, 1); score += 50;
+                    }
+                });
+
+                if (score > highScore) highScore = Math.floor(score);
+                ui.innerHTML = `Score: ${Math.floor(score)} | High: ${highScore}`;
+
+                if (isGameOver) {
+                    gameOverUI.style.display = 'block';
+                    finalScoreUI.innerHTML = `คะแนนที่ทำได้: ${Math.floor(score)}`;
+                } else {
+                    requestAnimationFrame(animate);
+                }
+            }
+
+            window.addEventListener('keydown', (e) => { if (e.code === 'Space' && player.grounded) { player.dy = player.jump; player.grounded = false; } });
+            canvas.addEventListener('touchstart', () => { if (player.grounded) { player.dy = player.jump; player.grounded = false; } });
+            canvas.addEventListener('mousedown', () => { if (player.grounded) { player.dy = player.jump; player.grounded = false; } });
+
+            animate();
+        </script>
+    </body>
+    </html>
+    """
+    
+    import streamlit.components.v1 as components
+    components.html(game_html, height=450)
+
+    # --- ปุ่มกลับหน้าหลัก ---
+    st.write("---")
+    if st.button("⬅️ กลับไปหน้าหลัก", use_container_width=True):
+        if st.session_state.user['role'] == 'admin':
+            st.session_state.page = 'admin_dashboard'
+        else:
+            st.session_state.page = 'game'
+        st.rerun()
