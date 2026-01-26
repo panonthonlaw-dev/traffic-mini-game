@@ -5,43 +5,46 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import time
 
-# --- 1. ตั้งค่าพื้นฐานหน้าเว็บ ---
+# --- 1. ตั้งค่าหน้าเว็บ ---
 st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
 
-# --- 2. การเชื่อมต่อระบบ (Fix Bug InvalidPadding) ---
+# --- 2. เชื่อมต่อระบบ (พร้อมตัวแก้ Bug PEM File) ---
 try:
     # เชื่อมต่อ Supabase
     supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     
-    # เชื่อมต่อ Google Drive (พร้อมแก้ปัญหาตัวขึ้นบรรทัดใหม่ใน Private Key)
+    # ดึงค่าจาก Secrets มาใส่ในตัวแปรแบบ Dictionary
     gcp_info = dict(st.secrets["gcp_service_account"])
+    
+    # 🟢 จุดสำคัญ: แก้ไขปัญหา \n ในกุญแจลับ
     gcp_info["private_key"] = gcp_info["private_key"].replace("\\n", "\n")
     
     DRIVE_FOLDER_ID = st.secrets["general"]["DRIVE_FOLDER_ID"]
     
+    # สร้างการเชื่อมต่อ Google Drive ด้วยข้อมูลที่แก้ไขแล้ว
     creds = service_account.Credentials.from_service_account_info(
         gcp_info, scopes=['https://www.googleapis.com/auth/drive.file']
     )
     drive_service = build('drive', 'v3', credentials=creds)
+
 except Exception as e:
     st.error(f"❌ ระบบขัดข้องในการเชื่อมต่อ: {e}")
     st.stop()
 
-# --- 3. ฟังก์ชันอัปโหลดไป Google Drive ---
+# --- 3. ฟังก์ชันอัปโหลดรูป ---
 def upload_to_drive(file_obj, filename):
     try:
         metadata = {'name': filename, 'parents': [DRIVE_FOLDER_ID]}
         media = MediaIoBaseUpload(file_obj, mimetype=file_obj.type, resumable=True)
         file = drive_service.files().create(body=metadata, media_body=media, fields='id, webViewLink').execute()
-        # เปิดสิทธิ์ให้เข้าถึงลิงก์ได้แบบสาธารณะ (สำหรับครูตรวจ)
         drive_service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
         return file.get('webViewLink')
     except: return None
 
-# --- 4. CSS แต่งสวย (ปุ่มฟ้า/เขียว/จัดกึ่งกลาง) ---
+# --- 4. CSS แต่งหน้าตา (ตามสไตล์เดิมที่พี่ชอบ) ---
 st.markdown("""
     <style>
-        .block-container { max-width: 450px; padding-top: 2rem; margin: auto; }
+        .block-container { max-width: 420px; padding-top: 2rem; margin: auto; }
         div[data-testid="stFormSubmitButton"] > button {
             background-color: #1877f2 !important; color: white !important; font-weight: bold !important;
             height: 50px !important; width: 100% !important; border-radius: 8px !important;
@@ -52,26 +55,26 @@ st.markdown("""
         }
         div.stButton > button[kind="secondary"] {
             background: transparent !important; border: none !important; color: #1877f2 !important;
-            font-size: 14px !important; width: 100% !important;
+            font-size: 14px !important; text-decoration: none !important; width: 100% !important;
         }
         input { text-align: center !important; border-radius: 8px !important; }
         .mission-card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border: 1px solid #eee; margin-bottom: 15px; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 5. จัดการสถานะหน้าจอ ---
+# --- 5. จัดการหน้าจอ (State Management) ---
 if 'page' not in st.session_state: st.session_state.page = 'login'
-if 'user' not in st.session_state: st.session_state.user = None
+if 'user' not in st.session_state.user: st.session_state.user = None
 
 def go_to(page):
     st.session_state.page = page
     st.rerun()
 
-# --- 6. แสดงผลแต่ละหน้าจอ ---
+# --- 6. แสดงผลหน้าจอ ---
 
-# 🔵 หน้าเข้าสู่ระบบ
+# 🔵 หน้า LOGIN
 if st.session_state.page == 'login':
-    st.markdown("<h1 style='text-align: center; color:#1877f2;'>traffic game</h1><p style='text-align: center;'>เล่นเปลี่ยนรอด</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color:#1877f2; margin-bottom:0;'>traffic game</h1><p style='text-align: center;'>เล่นเปลี่ยนรอด</p>", unsafe_allow_html=True)
     with st.form("login"):
         u = st.text_input("user", placeholder="ชื่อผู้ใช้", label_visibility="collapsed")
         p = st.text_input("pass", type="password", placeholder="รหัสผ่าน", label_visibility="collapsed")
@@ -99,18 +102,17 @@ elif st.session_state.page == 'signup':
             if p1 == p2 and len(user) >= 6:
                 try:
                     supabase.table("users").insert({"fullname":name, "username":user, "phone":phone, "password":p1}).execute()
-                    st.success("สมัครสำเร็จ!")
+                    st.success("✅ สมัครสำเร็จ!")
                     time.sleep(1); go_to('login')
-                except: st.error("ชื่อผู้ใช้นี้ถูกใช้งานแล้ว")
-            else: st.warning("กรุณาตรวจสอบข้อมูล")
+                except: st.error("❌ ชื่อผู้ใช้นี้ถูกใช้งานแล้ว")
+            else: st.warning("กรุณาตรวจสอบข้อมูลอีกครั้ง")
     if st.button("ยกเลิก", type="secondary"): go_to('login')
 
-# 🎮 หน้าหลัก/เล่นเกม
+# 🎮 หน้าเล่นเกม / ภารกิจ
 elif st.session_state.page == 'game':
     u = st.session_state.user
-    st.markdown(f"<h3 style='text-align: center;'>สวัสดีคุณ {u['fullname']} 👋</h3>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='text-align: center; color:#1877f2;'>สวัสดีคุณ {u['fullname']} 👋</h3>", unsafe_allow_html=True)
     
-    # โหลดภารกิจและการส่งงาน
     missions = supabase.table("missions").select("*").eq("is_active", True).execute().data
     subs = supabase.table("submissions").select("mission_id").eq("user_username", u['username']).execute().data
     done_ids = [s['mission_id'] for s in subs]
@@ -138,9 +140,9 @@ elif st.session_state.page == 'game':
 elif st.session_state.page == 'forgot':
     st.markdown("<h3 style='text-align: center;'>กู้คืนรหัสผ่าน</h3>", unsafe_allow_html=True)
     with st.form("forgot"):
-        user = st.text_input("ชื่อผู้ใช้")
+        user_input = st.text_input("ชื่อผู้ใช้")
         if st.form_submit_button("ค้นหา"):
-            res = supabase.table("users").select("password").eq("username", user).execute()
-            if res.data: st.success(f"รหัสผ่านของคุณคือ: {res.data[0]['password']}")
-            else: st.error("ไม่พบข้อมูลผู้ใช้")
+            res = supabase.table("users").select("password").eq("username", user_input).execute()
+            if res.data: st.success(f"🔑 รหัสผ่านของคุณคือ: {res.data[0]['password']}")
+            else: st.error("❌ ไม่พบข้อมูลผู้ใช้")
     if st.button("กลับไปหน้าแรก", type="secondary"): go_to('login')
