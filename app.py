@@ -21,7 +21,7 @@ if "page" in st.query_params:
 if "m_id" in st.query_params:
     st.session_state.selected_mission = int(st.query_params["m_id"])
 
-# --- 4. การเชื่อมต่อระบบ ---
+# --- 4. การเชื่อมต่อระบบ (Supabase & Google Drive) ---
 try:
     supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     gcp_info = dict(st.secrets["gcp_service_account"])
@@ -45,7 +45,7 @@ if "u" in st.query_params and st.session_state.user is None:
     except:
         pass
 
-# --- 5. CSS ปรับแต่งหน้าตา ---
+# --- 5. CSS ปรับแต่งหน้าตา (อิงตามโทนเดิมของพี่) ---
 st.markdown("""
     <style>
         .stApp { background-color: #f8f9fa !important; }
@@ -53,11 +53,13 @@ st.markdown("""
         input { color: #003366 !important; text-align: left !important; }
         label { color: #003366 !important; font-weight: bold !important; }
 
+        /* 🔵 ปุ่มหลัก สีฟ้า */
         div[data-testid="stFormSubmitButton"] > button {
             background-color: #1877f2 !important; color: white !important;
             font-weight: bold !important; height: 50px !important; border-radius: 10px !important;
         }
 
+        /* 🟢 ปุ่มสีเขียว */
         div.stButton > button[kind="secondary"] {
             background-color: #42b72a !important; color: white !important;
             font-weight: bold !important; height: 50px !important; border-radius: 10px !important;
@@ -77,11 +79,6 @@ st.markdown("""
             font-weight: normal !important;
             width: auto !important;
         }
-        .thin-btn-green div.stButton > button:hover {
-            background-color: #42b72a !important;
-            color: white !important;
-        }
-
         .status-right {
             font-size: 13px !important;
             line-height: 30px;
@@ -194,26 +191,22 @@ elif st.session_state.page == 'game':
         m_data = supabase.table("missions").select("*").eq("id", m_id).single().execute().data
         st.markdown(f"<h2>{m_data['title']}</h2>", unsafe_allow_html=True)
         
-        st.markdown('<div class="thin-btn-green">', unsafe_allow_html=True)
         if st.button("⬅️ ย้อนกลับ", key="back"): st.session_state.selected_mission = None; st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
         
         st.info(f"💡 วิธีทำ: {m_data.get('description', 'ส่งรูปถ่ายกิจกรรม')}")
+        f = st.file_uploader("📸 แนบรูปถ่าย", type=['jpg','png','jpeg'])
         
-        f = st.file_uploader("📸 แนบรูปถ่ายกิจกรรม", type=['jpg','png','jpeg'])
-        
-        # ✨ เพิ่มปุ่ม "ส่งภารกิจ" ตรงนี้ครับ!
+        # 🛑 เพิ่มปุ่ม "ส่งภารกิจ" ตามที่พี่ต้องการครับ
         if f:
-            st.image(f, caption="ตรวจสอบความถูกต้องก่อนส่ง", width=300)
             if st.button("ส่งภารกิจ", type="secondary", use_container_width=True):
-                with st.spinner("กำลังส่งภารกิจ..."):
+                with st.spinner("กำลังอัปโหลด..."):
                     today = datetime.now().strftime("%Y-%m-%d")
                     filename = f"{u['student_id']}_m{m_id}_{today}.jpg"
                     meta = {'name': filename, 'parents': [DRIVE_FOLDER_ID]}
                     media = MediaIoBaseUpload(f, mimetype=f.type, resumable=True)
                     drive_service.files().create(body=meta, media_body=media).execute()
                     supabase.table("submissions").insert({"user_username": u['username'], "mission_id": m_id}).execute()
-                    st.success("🎉 ส่งภารกิจเรียบร้อยแล้ว!"); time.sleep(1.5); st.session_state.selected_mission = None; st.rerun()
+                    st.success("🎉 ส่งภารกิจสำเร็จ!"); time.sleep(1); st.session_state.selected_mission = None; st.rerun()
 
     st.write("---")
     if st.button("ออกจากระบบ", use_container_width=True): 
