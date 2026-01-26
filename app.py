@@ -304,65 +304,73 @@ elif st.session_state.page == 'game':
         go_to('login')
 
 elif st.session_state.page == 'admin_dashboard':
-    # --- 1. ตรวจสอบสิทธิ์ (Security) ---
+    # --- 1. ระบบความปลอดภัย (Security) ---
     if st.session_state.user is None or st.session_state.user.get('role') != 'admin': 
         st.session_state.page = 'login'
         st.rerun()
     
-    st.title("👨‍🏫 ระบบจัดการสำหรับผู้ดูแลระบบ")
-    st.markdown(f"ยินดีต้อนรับคุณครู **{st.session_state.user['fullname']}**")
+    st.title("👨‍🏫 ระบบจัดการหลังบ้าน (Admin)")
+    st.markdown(f"ผู้ดูแลระบบ: **{st.session_state.user['fullname']}**")
     st.write("---")
 
     # แยกส่วนการทำงานเป็น 2 Tabs
     tab1, tab2 = st.tabs(["📥 ตรวจงานและให้คะแนน", "📝 จัดการภารกิจ"])
 
     # ---------------------------------------------------------
-    # TAB 1: ตรวจงานนักเรียน (Update EXP ทันที)
+    # TAB 1: ตรวจงานนักเรียน (Update EXP ทันที + ปุ่ม Refresh)
     # ---------------------------------------------------------
     with tab1:
-        st.subheader("งานที่นักเรียนส่งมา (รอการตรวจสอบ)")
+        # ส่วนหัวและปุ่มดึงข้อมูลใหม่
+        col_title, col_ref = st.columns([0.7, 0.3])
+        with col_title:
+            st.subheader("รายการที่นักเรียนส่งมา")
+        with col_ref:
+            if st.button("🔄 ดึงข้อมูลล่าสุด", use_container_width=True):
+                st.rerun()
+
         try:
-            # ดึงข้อมูลงานที่ status เป็น pending
+            # ดึงข้อมูลงานที่ค้างตรวจ (Status = pending) เรียงจากใหม่ไปเก่า
             pending_subs = supabase.table("submissions") \
-                .select("*, users(fullname, student_id, total_exp), missions(title)") \
+                .select("*, users(username, fullname, student_id, total_exp), missions(title)") \
                 .eq("status", "pending") \
-                .order("created_at") \
+                .order("created_at", desc=True) \
                 .execute().data
         except Exception as e:
-            st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูล: {e}")
+            st.error(f"❌ ไม่สามารถดึงข้อมูลได้: {e}")
             pending_subs = []
 
         if not pending_subs:
-            st.success("🎉 ไม่มีงานค้างตรวจในขณะนี้!")
+            st.info("✨ ตอนนี้ไม่มีงานค้างตรวจแล้วครับคุณครู")
         else:
+            st.write(f"พบทั้งหมด {len(pending_subs)} รายการ")
             for sub in pending_subs:
-                with st.expander(f"📌 {sub['users']['fullname']} - {sub['missions']['title']}"):
+                with st.expander(f"📌 {sub['users']['fullname']} (รหัส: {sub['users']['student_id']})"):
                     c1, c2 = st.columns([0.6, 0.4])
                     
                     with c1:
-                        # 🖼️ แสดงรูปจาก Google Drive ผ่าน ID ที่เก็บใน image_url
+                        # 🖼️ ดึงรูปจาก Drive 2TB ผ่าน File ID
                         file_id = sub.get('image_url')
                         if file_id:
-                            # ใช้ thumbnail link ขนาดใหญ่
                             st.image(f"https://drive.google.com/thumbnail?id={file_id}&sz=w800", caption="หลักฐานการส่งงาน")
                         else:
                             st.warning("⚠️ ไม่พบ ID รูปภาพในระบบ")
                         st.caption(f"ส่งเมื่อ: {sub['created_at']}")
 
                     with c2:
-                        st.markdown("### 🏆 ให้คะแนน")
-                        score = st.number_input(f"คะแนน EXP ที่ได้", 0, 1000, 10, key=f"score_{sub['id']}")
+                        st.markdown("### 🏆 ให้คะแนน EXP")
+                        st.write(f"**ภารกิจ:** {sub['missions']['title']}")
+                        score = st.number_input(f"ระบุคะแนน", 0, 1000, 10, key=f"score_{sub['id']}")
                         
-                        if st.button("✅ อนุมัติงาน", key=f"btn_{sub['id']}", use_container_width=True):
+                        if st.button("✅ ยืนยันและให้คะแนน", key=f"btn_{sub['id']}", use_container_width=True):
                             try:
-                                with st.spinner("กำลังบันทึกคะแนน..."):
-                                    # จังหวะ 1: อัปเดตงานใน submissions เป็น approved
+                                with st.spinner("กำลังอัปเดตคะแนน..."):
+                                    # จังหวะที่ 1: อัปเดตตาราง submissions เป็น approved
                                     supabase.table("submissions").update({
                                         "points": score,
                                         "status": "approved"
                                     }).eq("id", sub['id']).execute()
                                     
-                                    # จังหวะ 2: บวกคะแนนเข้า total_exp ในตาราง users
+                                    # จังหวะที่ 2: บวกคะแนนเข้า total_exp ของเด็กในตาราง users
                                     current_total = sub['users'].get('total_exp', 0)
                                     new_total = (current_total if current_total else 0) + score
                                     
@@ -370,59 +378,63 @@ elif st.session_state.page == 'admin_dashboard':
                                         "total_exp": new_total
                                     }).eq("username", sub['user_username']).execute()
                                     
-                                    st.success(f"อัปเดตคะแนนให้ {sub['users']['fullname']} แล้ว! (รวม: {new_total} EXP)")
+                                    st.success(f"อัปเดตเรียบร้อย! {sub['users']['fullname']} ได้แต้มสะสม {new_total}")
                                     time.sleep(1)
                                     st.rerun()
                             except Exception as e:
-                                st.error(f"บันทึกคะแนนล้มเหลว: {e}")
+                                st.error(f"เกิดข้อผิดพลาด: {e}")
 
     # ---------------------------------------------------------
-    # TAB 2: สร้างและแสดงภารกิจ
+    # TAB 2: จัดการภารกิจ (สร้าง/ดู/ลบ)
     # ---------------------------------------------------------
     with tab2:
-        # ส่วนที่ 1: ฟอร์มสร้างภารกิจใหม่
-        st.subheader("➕ สร้างภารกิจใหม่")
-        with st.form("mission_form", clear_on_submit=True):
-            new_title = st.text_input("ชื่อภารกิจ")
-            new_desc = st.text_area("รายละเอียดวิธีทำ")
-            new_pts = st.number_input("คะแนนตั้งต้นของภารกิจ", 0, 500, 50)
+        # 1. ฟอร์มสร้างภารกิจใหม่
+        st.subheader("➕ ประกาศภารกิจใหม่")
+        with st.form("mission_form_admin", clear_on_submit=True):
+            m_title = st.text_input("หัวข้อภารกิจ", placeholder="เช่น ถ่ายรูปคู่กับป้ายจราจร")
+            m_desc = st.text_area("รายละเอียดวิธีทำ")
+            m_pts = st.number_input("คะแนนเป้าหมาย (EXP)", 0, 500, 50)
             
-            if st.form_submit_button("🚀 ประกาศภารกิจ", use_container_width=True):
-                if new_title and new_desc:
+            if st.form_submit_button("🚀 ยืนยันการประกาศภารกิจ", use_container_width=True):
+                if m_title and m_desc:
                     try:
                         supabase.table("missions").insert({
-                            "title": new_title,
-                            "description": new_desc,
-                            "points": new_pts
+                            "title": m_title,
+                            "description": m_desc,
+                            "points": m_pts
                         }).execute()
-                        st.success(f"ประกาศภารกิจ '{new_title}' เรียบร้อย!")
+                        st.success(f"ประกาศภารกิจ '{m_title}' สำเร็จ!")
                         time.sleep(1)
                         st.rerun()
                     except Exception as e:
                         st.error(f"สร้างภารกิจไม่ได้: {e}")
                 else:
-                    st.warning("กรุณากรอกข้อมูลให้ครบครับ")
+                    st.warning("กรุณากรอกข้อมูลให้ครบถ้วน")
 
         st.write("---")
         
-        # ส่วนที่ 2: แสดงภารกิจที่ประกาศไปแล้ว
-        st.subheader("📋 ภารกิจที่ประกาศแล้ว")
+        # 2. แสดงรายการภารกิจที่ประกาศไปแล้ว
+        st.subheader("📋 ภารกิจที่ประกาศแล้วในระบบ")
         try:
             m_list = supabase.table("missions").select("*").order("created_at", desc=True).execute().data
-            for m in m_list:
-                with st.expander(f"📍 {m['title']} ({m.get('points', 0)} EXP)"):
-                    st.write(m['description'])
-                    if st.button("🗑️ ลบภารกิจ", key=f"del_{m['id']}", type="secondary"):
-                        supabase.table("missions").delete().eq("id", m['id']).execute()
-                        st.warning("ลบภารกิจแล้ว")
-                        time.sleep(1)
-                        st.rerun()
+            if not m_list:
+                st.info("ยังไม่มีการสร้างภารกิจ")
+            else:
+                for m in m_list:
+                    with st.expander(f"📍 {m['title']} ({m.get('points', 0)} EXP)"):
+                        st.write(f"**รายละเอียด:** {m['description']}")
+                        st.caption(f"สร้างเมื่อ: {m['created_at'][:10]}")
+                        if st.button("🗑️ ลบภารกิจนี้", key=f"del_m_{m['id']}", type="secondary"):
+                            supabase.table("missions").delete().eq("id", m['id']).execute()
+                            st.warning("ลบภารกิจเรียบร้อยแล้ว")
+                            time.sleep(1)
+                            st.rerun()
         except Exception as e:
-            st.error(f"โหลดภารกิจไม่ได้: {e}")
+            st.error(f"โหลดภารกิจล้มเหลว: {e}")
 
     # --- ปุ่มออกจากระบบ ---
     st.write("---")
-    if st.button("🚪 ออกจากระบบแอดมิน", use_container_width=True):
+    if st.button("🚪 ออกจากระบบ", use_container_width=True, key="admin_logout_main"):
         st.session_state.user = None
         st.query_params.clear()
         go_to('login')
