@@ -1,11 +1,4 @@
-import streamlit as st
-from supabase import create_client
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
-import time
-import re
-from datetime import datetime
+🚨 เกิดข้อผิดพลาด: name 'io' is not defined
 
 # --- 1. ตั้งค่าหน้าเว็บ ---
 st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
@@ -248,33 +241,38 @@ elif st.session_state.page == 'game':
         # 🛑 เพิ่มปุ่ม "ส่งภารกิจ" 
         # 🛑 ส่วนส่งภารกิจแบบดักจับ Error ละเอียด
        # 🛑 ส่วนส่งภารกิจ (ฉบับกันเด้ง)
+        # 🛑 ส่วนส่งภารกิจ (ฉบับแก้ไขสมบูรณ์)
         if f:
             if st.button("🚀 ยืนยันส่งภารกิจ", type="primary", use_container_width=True):
-                with st.spinner("กำลังอัปโหลด..."):
+                with st.spinner("กำลังอัปโหลดรูปภาพ..."):
                     try:
-                        # 1. อัปโหลดเข้า Drive
+                        # 1. จัดการเรื่องไฟล์และ Drive
+                        import io  # ป้องกัน NameError: name 'io' is not defined
                         today = datetime.now().strftime("%Y-%m-%d")
                         filename = f"{u['student_id']}_m{m_id}_{today}.jpg"
+                        
                         meta = {'name': filename, 'parents': [DRIVE_FOLDER_ID]}
                         media = MediaIoBaseUpload(io.BytesIO(f.getvalue()), mimetype=f.type, resumable=True)
+                        
+                        # สั่งอัปโหลด
                         drive_service.files().create(body=meta, media_body=media).execute()
 
-                        # 2. บันทึกลง Supabase
+                        # 2. บันทึกลง Supabase (ต้องใส่ข้อมูลให้ครบทุกคอลัมน์สำคัญ)
                         supabase.table("submissions").insert({
-                            "user_username": u['username'], 
+                            "user_username": u['username'],
                             "mission_id": m_id,
-                            "status": "pending",
-                            "points": 0
+                            "status": "pending",  # ตั้งค่าเป็นรอตรวจ
+                            "points": 0           # เริ่มต้นที่ 0 คะแนน
                         }).execute()
 
-                        st.success("🎉 ส่งภารกิจสำเร็จ!")
-                        time.sleep(1.5)
-                        
-                        # ย้ำอีกรอบว่าห้ามลบ user ออกตอนเปลี่ยนหน้า
+                        # 3. แจ้งผลและ Reset หน้าจอ
+                        st.success("🎉 ส่งภารกิจสำเร็จ! รอแอดมินตรวจงานนะครับ")
+                        time.sleep(2)
                         st.session_state.selected_mission = None
                         st.rerun()
 
                     except Exception as e:
+                        # ถ้ามีปัญหา มันจะพ่น Error จริงออกมาที่นี่ครับ
                         st.error(f"🚨 เกิดข้อผิดพลาด: {e}")
     st.write("---")
     if st.button("ออกจากระบบ", use_container_width=True): 
