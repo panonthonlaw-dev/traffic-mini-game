@@ -259,9 +259,73 @@ elif st.session_state.page == 'game':
 
 # 🛠️ หน้า Admin Dashboard
 elif st.session_state.page == 'admin_dashboard':
-    if st.session_state.user is None or st.session_state.user['role'] != 'admin': go_to('login')
-    st.markdown("<h2>ระบบจัดการหลังบ้าน (Admin)</h2>", unsafe_allow_html=True)
-    st.write(f"สวัสดีแอดมิน: {st.session_state.user['fullname']}")
+    if st.session_state.user is None or st.session_state.user['role'] != 'admin': 
+        go_to('login')
+    
+    st.title("👨‍🏫 แผงควบคุมแอดมิน")
+    st.write(f"ผู้ดูแลระบบ: **{st.session_state.user['fullname']}**")
+    st.write("---")
+
+    # 1. ดึงข้อมูลงานที่ค้างตรวจ (Status = 'pending')
+    # หมายเหตุ: ตาราง submissions ต้องมีคอลัมน์ points(int) และ status(text)
+    try:
+        pending_subs = supabase.table("submissions") \
+            .select("*, users(fullname, student_id), missions(title)") \
+            .eq("status", "pending") \
+            .order("created_at") \
+            .execute().data
+    except:
+        st.error("❌ ไม่สามารถดึงข้อมูลได้ (เช็คคอลัมน์ points และ status ใน Supabase)")
+        pending_subs = []
+
+    st.subheader(f"📥 งานที่รอการตรวจ ({len(pending_subs)} รายการ)")
+
+    if not pending_subs:
+        st.info("ไม่มีงานค้างตรวจในขณะนี้")
+    else:
+        for sub in pending_subs:
+            with st.expander(f"📌 {sub['users']['fullname']} - {sub['missions']['title']}"):
+                c1, c2 = st.columns([0.6, 0.4])
+                
+                with c1:
+                    # 🖼️ ดึงรูปจาก Google Drive มาแสดง (ใช้ชื่อไฟล์ที่เก็บไว้ตอนส่ง)
+                    # รูปแบบชื่อไฟล์: {student_id}_m{mission_id}_{date}.jpg
+                    img_filename = f"{sub['users']['student_id']}_m{sub['mission_id']}_{sub['created_at'][:10]}.jpg"
+                    
+                    st.write(f"📄 ชื่อไฟล์: `{img_filename}`")
+                    
+                    # ค้นหาไฟล์ใน Drive เพื่อเอา Link มาโชว์รูป
+                    try:
+                        query = f"name = '{img_filename}' and '{DRIVE_FOLDER_ID}' in parents"
+                        results = drive_service.files().list(q=query, fields="files(id, thumbnailLink)").execute().get('files', [])
+                        
+                        if results:
+                            # แสดงรูปจาก Drive (ใช้ thumbnailLink หรือจะดึงแบบ Media ก็ได้)
+                            file_id = results[0]['id']
+                            st.image(f"https://drive.google.com/thumbnail?id={file_id}&sz=w600", caption="หลักฐานการทำภารกิจ")
+                        else:
+                            st.warning("⚠️ ไม่พบรูปภาพใน Google Drive")
+                    except:
+                        st.error("⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ")
+
+                with c2:
+                    st.write("📝 **การให้คะแนน**")
+                    score = st.number_input(f"คะแนน EXP (0-100)", min_value=0, max_value=100, step=10, key=f"score_{sub['id']}")
+                    
+                    if st.button("✅ ยืนยันและให้คะแนน", key=f"btn_{sub['id']}", use_container_width=True):
+                        try:
+                            supabase.table("submissions").update({
+                                "points": score,
+                                "status": "approved"
+                            }).eq("id", sub['id']).execute()
+                            
+                            st.success(f"ให้คะแนน {score} EXP เรียบร้อย!")
+                            time.sleep(1)
+                            st.rerun()
+                        except:
+                            st.error("❌ บันทึกข้อมูลไม่สำเร็จ")
+
+    st.write("---")
     if st.button("ออกจากระบบ", use_container_width=True): 
         st.session_state.user = None
         st.query_params.clear()
