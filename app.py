@@ -6,7 +6,10 @@ from googleapiclient.http import MediaIoBaseUpload
 import time
 import re
 from datetime import datetime
-import io  # ต้องมีตัวนี้ด้วยนะพี่ ที่เราคุยกันไว้
+import io
+import requests
+import base64
+import io
 
 
 
@@ -254,36 +257,44 @@ elif st.session_state.page == 'game':
         # 🛑 ส่วนส่งภารกิจ (ฉบับแก้ไขสมบูรณ์)
         if f:
             if st.button("🚀 ยืนยันส่งภารกิจ", type="primary", use_container_width=True):
-                with st.spinner("กำลังอัปโหลดรูปภาพ..."):
+                with st.spinner("กำลังส่งรูปเข้า Drive 2TB..."):
                     try:
-                        # 1. จัดการเรื่องไฟล์และ Drive
-                        import io  # ป้องกัน NameError: name 'io' is not defined
+                        # 1. เตรียมข้อมูลรูป
                         today = datetime.now().strftime("%Y-%m-%d")
                         filename = f"{u['student_id']}_m{m_id}_{today}.jpg"
+                        base64_img = base64.b64encode(f.getvalue()).decode('utf-8')
                         
-                        meta = {'name': filename, 'parents': [DRIVE_FOLDER_ID]}
-                        media = MediaIoBaseUpload(io.BytesIO(f.getvalue()), mimetype=f.type, resumable=True)
+                        # 2. ส่งไปที่ Apps Script URL (วาง URL ที่พี่ก๊อปมาตรงนี้)
+                        web_app_url = "ใส่_URL_ที่ก๊อปมาจาก_ขั้นตอนที่_2_ตรงนี้ครับ"
                         
-                        # สั่งอัปโหลด
-                        drive_service.files().create(body=meta, media_body=media).execute()
+                        payload = {
+                            "filename": filename,
+                            "mimetype": f.type,
+                            "base64": base64_img
+                        }
+                        
+                        response = requests.post(web_app_url, json=payload)
+                        result = response.json()
 
-                        # 2. บันทึกลง Supabase (ต้องใส่ข้อมูลให้ครบทุกคอลัมน์สำคัญ)
-                        supabase.table("submissions").insert({
-                            "user_username": u['username'],
-                            "mission_id": m_id,
-                            "status": "pending",  # ตั้งค่าเป็นรอตรวจ
-                            "points": 0           # เริ่มต้นที่ 0 คะแนน
-                        }).execute()
+                        if result.get('status') == 'success':
+                            # 3. บันทึกลง Supabase
+                            supabase.table("submissions").insert({
+                                "user_username": u['username'],
+                                "mission_id": m_id,
+                                "status": "pending",
+                                "points": 0,
+                                "image_url": result['fileId'] # เก็บ ID ไฟล์ไว้ตรวจงาน
+                            }).execute()
 
-                        # 3. แจ้งผลและ Reset หน้าจอ
-                        st.success("🎉 ส่งภารกิจสำเร็จ! รอแอดมินตรวจงานนะครับ")
-                        time.sleep(2)
-                        st.session_state.selected_mission = None
-                        st.rerun()
+                            st.success("🎉 ส่งภารกิจเข้า Drive 2TB สำเร็จ!")
+                            time.sleep(1.5)
+                            st.session_state.selected_mission = None
+                            st.rerun()
+                        else:
+                            st.error(f"🚨 Google แจ้งว่า: {result.get('message')}")
 
                     except Exception as e:
-                        # ถ้ามีปัญหา มันจะพ่น Error จริงออกมาที่นี่ครับ
-                        st.error(f"🚨 เกิดข้อผิดพลาด: {e}")
+                        st.error(f"🚨 เชื่อมต่อระบบอัปโหลดไม่ได้: {e}")
     st.write("---")
     if st.button("ออกจากระบบ", use_container_width=True): 
         st.session_state.user = None
