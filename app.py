@@ -305,74 +305,111 @@ elif st.session_state.page == 'game':
 
 # 🛠️ หน้า Admin Dashboard
 elif st.session_state.page == 'admin_dashboard':
-    if st.session_state.user is None or st.session_state.user['role'] != 'admin': 
-        go_to('login')
+    # 1. ระบบรักษาความปลอดภัย: เช็กว่าเป็น Admin จริงไหม
+    if st.session_state.user is None or st.session_state.user.get('role') != 'admin': 
+        st.session_state.page = 'login'
+        st.rerun()
     
-    st.title("👨‍🏫 แผงควบคุมแอดมิน")
-    st.write(f"ผู้ดูแลระบบ: **{st.session_state.user['fullname']}**")
-    st.write("---")
+    st.title("👨‍🏫 แผงควบคุมผู้ดูแลระบบ")
+    st.info(f"สวัสดีครับคุณครู **{st.session_state.user['fullname']}** | วันนี้มีงานให้ตรวจเพียบเลย!")
 
-    # 1. ดึงข้อมูลงานที่ค้างตรวจ (Status = 'pending')
-    # หมายเหตุ: ตาราง submissions ต้องมีคอลัมน์ points(int) และ status(text)
-    try:
-        pending_subs = supabase.table("submissions") \
-            .select("*, users(fullname, student_id), missions(title)") \
-            .eq("status", "pending") \
-            .order("created_at") \
-            .execute().data
-    except:
-        st.error("❌ ไม่สามารถดึงข้อมูลได้ (เช็คคอลัมน์ points และ status ใน Supabase)")
-        pending_subs = []
+    # ใช้ Tabs เพื่อแยกส่วนการตรวจงานและการสร้างภารกิจ
+    tab1, tab2 = st.tabs(["📥 ตรวจงานนักเรียน", "➕ เพิ่มภารกิจใหม่"])
 
-    st.subheader(f"📥 งานที่รอการตรวจ ({len(pending_subs)} รายการ)")
+    # ---------------------------------------------------------
+    # TAB 1: ตรวจงานและให้คะแนน (อัปเดต Rank ทันที)
+    # ---------------------------------------------------------
+    with tab1:
+        try:
+            # ดึงงานที่ค้างตรวจ (Status = pending)
+            pending_subs = supabase.table("submissions") \
+                .select("*, users(fullname, student_id, total_exp), missions(title)") \
+                .eq("status", "pending") \
+                .order("created_at") \
+                .execute().data
+        except Exception as e:
+            st.error(f"❌ ดึงข้อมูลไม่สำเร็จ: {e}")
+            pending_subs = []
 
-    if not pending_subs:
-        st.info("ไม่มีงานค้างตรวจในขณะนี้")
-    else:
-        for sub in pending_subs:
-            with st.expander(f"📌 {sub['users']['fullname']} - {sub['missions']['title']}"):
-                c1, c2 = st.columns([0.6, 0.4])
-                
-                with c1:
-                    # 🖼️ ดึงรูปจาก Google Drive มาแสดง (ใช้ชื่อไฟล์ที่เก็บไว้ตอนส่ง)
-                    # รูปแบบชื่อไฟล์: {student_id}_m{mission_id}_{date}.jpg
-                    img_filename = f"{sub['users']['student_id']}_m{sub['mission_id']}_{sub['created_at'][:10]}.jpg"
+        st.subheader(f"รายการรอการตรวจสอบ ({len(pending_subs)} งาน)")
+
+        if not pending_subs:
+            st.success("✨ ยอดเยี่ยม! ตอนนี้ไม่มีงานค้างตรวจแล้วครับ")
+        else:
+            for sub in pending_subs:
+                # แสดงงานแต่ละชิ้นในรูปแบบ Expander
+                with st.expander(f"📌 {sub['users']['fullname']} (รหัส: {sub['users']['student_id']})"):
+                    col1, col2 = st.columns([0.6, 0.4])
                     
-                    st.write(f"📄 ชื่อไฟล์: `{img_filename}`")
-                    
-                    # ค้นหาไฟล์ใน Drive เพื่อเอา Link มาโชว์รูป
-                    try:
-                        query = f"name = '{img_filename}' and '{DRIVE_FOLDER_ID}' in parents"
-                        results = drive_service.files().list(q=query, fields="files(id, thumbnailLink)").execute().get('files', [])
-                        
-                        if results:
-                            # แสดงรูปจาก Drive (ใช้ thumbnailLink หรือจะดึงแบบ Media ก็ได้)
-                            file_id = results[0]['id']
-                            st.image(f"https://drive.google.com/thumbnail?id={file_id}&sz=w600", caption="หลักฐานการทำภารกิจ")
+                    with col1:
+                        # 🖼️ แสดงรูปจาก Google Drive (ดึงผ่าน image_url ที่เป็น File ID)
+                        file_id = sub.get('image_url')
+                        if file_id:
+                            st.image(f"https://drive.google.com/thumbnail?id={file_id}&sz=w800", caption="หลักฐานจากนักเรียน")
                         else:
-                            st.warning("⚠️ ไม่พบรูปภาพใน Google Drive")
-                    except:
-                        st.error("⚠️ เชื่อมต่อ Google Drive ไม่สำเร็จ")
+                            st.warning("⚠️ ไม่พบรหัสรูปภาพในฐานข้อมูล")
+                        st.caption(f"ส่งเมื่อ: {sub['created_at']}")
 
-                with c2:
-                    st.write("📝 **การให้คะแนน**")
-                    score = st.number_input(f"คะแนน EXP (0-100)", min_value=0, max_value=100, step=10, key=f"score_{sub['id']}")
-                    
-                    if st.button("✅ ยืนยันและให้คะแนน", key=f"btn_{sub['id']}", use_container_width=True):
-                        try:
-                            supabase.table("submissions").update({
-                                "points": score,
-                                "status": "approved"
-                            }).eq("id", sub['id']).execute()
-                            
-                            st.success(f"ให้คะแนน {score} EXP เรียบร้อย!")
-                            time.sleep(1)
-                            st.rerun()
-                        except:
-                            st.error("❌ บันทึกข้อมูลไม่สำเร็จ")
+                    with col2:
+                        st.markdown("### 📝 ให้คะแนนภารกิจ")
+                        st.write(f"**ภารกิจ:** {sub['missions']['title']}")
+                        
+                        # ระบุคะแนน (Default ตามที่ตั้งไว้ในภารกิจ หรือตั้งเอง)
+                        score = st.number_input(f"ระบุ EXP ที่ได้", 0, 1000, 10, key=f"score_{sub['id']}")
+                        
+                        if st.button("✅ อนุมัติและให้คะแนน", key=f"btn_{sub['id']}", use_container_width=True):
+                            try:
+                                with st.spinner("กำลังอัปเดตคะแนน..."):
+                                    # จังหวะที่ 1: อัปเดตตาราง submissions
+                                    supabase.table("submissions").update({
+                                        "points": score,
+                                        "status": "approved"
+                                    }).eq("id", sub['id']).execute()
+                                    
+                                    # จังหวะที่ 2: บวกคะแนนเข้า total_exp ในตาราง users
+                                    current_exp = sub['users'].get('total_exp', 0)
+                                    new_exp = (current_exp if current_exp else 0) + score
+                                    
+                                    supabase.table("users").update({
+                                        "total_exp": new_exp
+                                    }).eq("username", sub['user_username']).execute()
+                                    
+                                    st.success(f"🌟 อนุมัติสำเร็จ! {sub['users']['fullname']} ได้แต้มรวม {new_exp} EXP")
+                                    time.sleep(1)
+                                    st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ บันทึกผิดพลาด: {e}")
+
+    # ---------------------------------------------------------
+    # TAB 2: ระบบสร้างภารกิจใหม่
+    # ---------------------------------------------------------
+    with tab2:
+        st.subheader("🆕 สร้างภารกิจใหม่ให้เด็ก ๆ")
+        with st.form("new_mission_form", clear_on_submit=True):
+            m_title = st.text_input("ชื่อภารกิจ", placeholder="เช่น ถ่ายรูปคู่กับไฟจราจรแยกโรงเรียน")
+            m_desc = st.text_area("รายละเอียด/เงื่อนไขการส่งงาน")
+            m_point_goal = st.number_input("คะแนนที่จะได้รับ (โชว์หลอกเด็ก)", 0, 500, 50)
+            
+            submit_btn = st.form_submit_button("🚀 ประกาศภารกิจ", use_container_width=True)
+            
+            if submit_btn:
+                if m_title and m_desc:
+                    try:
+                        supabase.table("missions").insert({
+                            "title": m_title,
+                            "description": m_desc,
+                            "points": m_point_goal
+                        }).execute()
+                        st.success(f"✅ ประกาศภารกิจ '{m_title}' สำเร็จ!")
+                        time.sleep(1)
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ ไม่สามารถสร้างภารกิจได้: {e}")
+                else:
+                    st.warning("กรุณากรอกข้อมูลให้ครบถ้วนก่อนส่งครับ")
 
     st.write("---")
-    if st.button("ออกจากระบบ", use_container_width=True): 
+    if st.button("🚪 ออกจากระบบแอดมิน", use_container_width=True, key="admin_logout"): 
         st.session_state.user = None
         st.query_params.clear()
         go_to('login')
