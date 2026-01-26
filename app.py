@@ -9,36 +9,47 @@ from datetime import datetime
 import io
 import requests
 import base64
-import io
-# --- 1. ตั้งค่าพื้นฐาน ---
-if 'user' not in st.session_state:
-    st.session_state.user = None
 
-# --- 2. ระบบ Auto-Login จาก URL (แก้ปัญหา Refresh แล้วเด้ง) ---
-# เช็กว่าใน URL มีการฝากชื่อผู้ใช้ไว้ไหม (เช่น ?user=admin1)
-current_user_url = st.query_params.get("user")
-
-if st.session_state.user is None and current_user_url:
-    # ถ้าในเครื่องลืม แต่ใน URL มีชื่ออยู่ ให้ไปดึงข้อมูลจาก Supabase มาใหม่
-    user_data = supabase.table("users").select("*").eq("username", current_user_url).execute().data
-    if user_data:
-        st.session_state.user = user_data[0]
-        st.session_state.page = 'admin_dashboard' if user_data[0]['role'] == 'admin' else 'game'
-
-
-# --- 1. ตั้งค่าหน้าเว็บ ---
+# --- 1. ตั้งค่าหน้าเว็บ (ต้องอยู่บนสุดของคำสั่ง Streamlit ทั้งหมด) ---
 st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
 
-# --- 2. ประกาศตัวแปร Session State ---
-if 'page' not in st.session_state: st.session_state.page = 'login'
+# --- 2. การเชื่อมต่อระบบ (ต้องประกาศ supabase ก่อนจะเอาไปใช้เช็ก Login) ---
+try:
+    supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+except Exception as e:
+    st.error(f"เชื่อมต่อฐานข้อมูลไม่ได้: {e}")
+
+# --- 3. ประกาศตัวแปร Session State พื้นฐาน ---
 if 'user' not in st.session_state: st.session_state.user = None
+if 'page' not in st.session_state: st.session_state.page = 'login'
 if 'selected_mission' not in st.session_state: st.session_state.selected_mission = None
 
-# --- 3. ระบบจดจำสถานะผ่าน URL ---
+# --- 4. ระบบ Auto-Login (ดึงค่าจาก URL กลับมา) ---
+# ในหน้า Login พี่ใช้คำว่า "u" ดังนั้นตรงนี้ต้องใช้ "u" เหมือนกันครับ
+q_user = st.query_params.get("u") 
+
+if st.session_state.user is None and q_user:
+    try:
+        # ตอนนี้ supabase ถูกประกาศไว้ข้างบนแล้ว จะรันบรรทัดนี้ผ่านครับ!
+        res = supabase.table("users").select("*").eq("username", q_user).execute()
+        if res.data:
+            st.session_state.user = res.data[0]
+            # ย้ายไปหน้าตามสิทธิ์
+            if st.session_state.user.get('role') == 'admin':
+                st.session_state.page = 'admin_dashboard'
+            else:
+                st.session_state.page = 'game'
+    except:
+        pass
+
+# --- 5. ระบบจดจำหน้าปัจจุบันผ่าน URL ---
 if "page" in st.query_params:
     st.session_state.page = st.query_params["page"]
 if "m_id" in st.query_params:
-    st.session_state.selected_mission = int(st.query_params["m_id"])
+    try:
+        st.session_state.selected_mission = int(st.query_params["m_id"])
+    except:
+        pass
 
 # --- 4. การเชื่อมต่อระบบ (Supabase & Google Drive) ---
 # --- 4. การเชื่อมต่อระบบ (ฉบับปรับปรุง) ---
