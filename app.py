@@ -248,55 +248,55 @@ elif st.session_state.page == 'game':
         
         if st.button("⬅️ ย้อนกลับ", key="back"): st.session_state.selected_mission = None; st.rerun()
         
-        st.info(f"💡 วิธีทำ: {m_data.get('description', 'ส่งรูปถ่ายกิจกรรม')}")
-        f = st.file_uploader("📸 แนบรูปถ่าย", type=['jpg','png','jpeg'])
+        st.info(f"💡 {m_data.get('description', 'กรุณาถ่ายรูปเพื่อยืนยันภารกิจ')}")
         
-        # 🛑 เพิ่มปุ่ม "ส่งภารกิจ" 
-        # 🛑 ส่วนส่งภารกิจแบบดักจับ Error ละเอียด
-       # 🛑 ส่วนส่งภารกิจ (ฉบับกันเด้ง)
-        # 🛑 ส่วนส่งภารกิจ (ฉบับแก้ไขสมบูรณ์)
-        # แก้ในไฟล์ app.py ตรงส่วนส่งภารกิจ
-if f:
-    if st.button("🚀 ยืนยันส่งภารกิจ", type="primary", use_container_width=True):
-        with st.spinner("กำลังส่งรูปเข้า Drive 2TB ของคุณ..."):
-            try:
-                # 1. เตรียมข้อมูลรูป
-                today = datetime.now().strftime("%Y-%m-%d")
-                filename = f"{u['student_id']}_m{m_id}_{today}.jpg"
-                base64_img = base64.b64encode(f.getvalue()).decode('utf-8')
-                
-                # 2. วาง URL ที่พี่ก๊อปมาตรงนี้ครับ! 🛑
-                web_app_url = "https://script.google.com/macros/s/AKfycbyizcX69XMBeDCp1oyGR3hLuJ2i_n4YyBFhukyRT8399-R4FePPLS4kA5CwYrl1-yne/exec"
-                
-                payload = {
-                    "filename": filename,
-                    "mimetype": f.type,
-                    "base64": base64_img
-                }
-                
-                # ส่งรูปผ่านสะพาน (Apps Script)
-                response = requests.post(web_app_url, json=payload)
-                result = response.json()
+        # 1. ต้องสร้าง f ตรงนี้ก่อนครับ! 🛑
+        f = st.file_uploader("📸 แนบรูปถ่ายหลักฐาน", type=['jpg','png','jpeg'])
+        
+        # 2. แล้วค่อยเช็ก if f: 
+        if f is not None:
+            if st.button("🚀 ยืนยันส่งภารกิจ", type="primary", use_container_width=True):
+                with st.spinner("กำลังส่งรูปเข้า Drive 2TB..."):
+                    try:
+                        import requests
+                        import base64
+                        import io
+                        
+                        # เตรียมข้อมูลส่ง Apps Script
+                        today = datetime.now().strftime("%Y-%m-%d")
+                        filename = f"{u['student_id']}_m{m_id}_{today}.jpg"
+                        base64_img = base64.b64encode(f.getvalue()).decode('utf-8')
+                        
+                        web_app_url = "https://script.google.com/macros/s/AKfycbyizcX69XMBeDCp1oyGR3hLuJ2i_n4YyBFhukyRT8399-R4FePPLS4kA5CwYrl1-yne/exec"
+                        
+                        payload = {
+                            "filename": filename,
+                            "mimetype": f.type,
+                            "base64": base64_img
+                        }
+                        
+                        response = requests.post(web_app_url, json=payload)
+                        result = response.json()
 
-                if result.get('status') == 'success':
-                    # 3. บันทึก ID ไฟล์ลง Supabase เพื่อเอาไว้เปิดดูในหน้าแอดมิน
-                    supabase.table("submissions").insert({
-                        "user_username": u['username'],
-                        "mission_id": m_id,
-                        "status": "pending",
-                        "points": 0,
-                        "image_url": result['fileId'] # นี่คือรหัสรูปที่ได้จาก Google
-                    }).execute()
+                        if result.get('status') == 'success':
+                            # บันทึกข้อมูลลง Supabase
+                            supabase.table("submissions").insert({
+                                "user_username": u['username'],
+                                "mission_id": m_id,
+                                "status": "pending",
+                                "points": 0,
+                                "image_url": result['fileId'] # เก็บ ID ไฟล์ไว้ดูในหน้าแอดมิน
+                            }).execute()
 
-                    st.success("🎉 ส่งงานเข้า Drive 2TB เรียบร้อยแล้ว!")
-                    time.sleep(1.5)
-                    st.session_state.selected_mission = None
-                    st.rerun()
-                else:
-                    st.error(f"🚨 Google บ่นว่า: {result.get('message')}")
+                            st.success("🎉 ส่งงานเรียบร้อย! ใช้พื้นที่ 2TB ของพี่คุ้มแน่นอน")
+                            time.sleep(1.5)
+                            st.session_state.selected_mission = None
+                            st.rerun()
+                        else:
+                            st.error(f"🚨 Google บ่นว่า: {result.get('message')}")
 
-            except Exception as e:
-                st.error(f"🚨 ระบบสะพานมีปัญหา: {e}")
+                    except Exception as e:
+                        st.error(f"🚨 ระบบส่งงานขัดข้อง: {e}")
     st.write("---")
     if st.button("ออกจากระบบ", use_container_width=True): 
         st.session_state.user = None
