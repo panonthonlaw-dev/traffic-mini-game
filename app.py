@@ -243,8 +243,8 @@ elif st.session_state.page == 'game':
         st.progress(min(progress, 1.0))
         st.write("---")
         if st.button("🎮 เล่นมินิเกมแก้เครียด"):
-    st.session_state.page = 'bonus_game'
-    st.rerun()
+           st.session_state.page = 'bonus_game'
+           st.rerun()
 
         # --- 5. รายการภารกิจ (เริ่มดึงข้อมูลต่อจากนี้) ---
         missions = supabase.table("missions").select("*").eq("is_active", True).execute().data
