@@ -10,14 +10,19 @@ st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered
 
 # --- 2. เชื่อมต่อระบบ (Supabase + Drive) ---
 try:
-    # Supabase (ใช้ Key ปกติก็พอครับ)
+    # Supabase
     supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     
-    # Google Drive
-    gcp_creds = st.secrets["gcp_service_account"]
+    # Google Drive (Fix InvalidPadding Error)
+    # แปลงข้อมูล Secret เป็น Dict เพื่อแก้ไข
+    gcp_creds = dict(st.secrets["gcp_service_account"])
+    
+    # 🟢 แก้ไขปัญหา \n ใน Private Key
+    gcp_creds["private_key"] = gcp_creds["private_key"].replace("\\n", "\n")
+    
     DRIVE_FOLDER_ID = st.secrets["general"]["DRIVE_FOLDER_ID"]
     
-    # สร้าง Credential สำหรับ Drive
+    # สร้าง Credential
     drive_creds = service_account.Credentials.from_service_account_info(
         gcp_creds, scopes=['https://www.googleapis.com/auth/drive.file']
     )
@@ -34,34 +39,31 @@ def upload_to_drive(file_obj, filename):
         media = MediaIoBaseUpload(file_obj, mimetype=file_obj.type, resumable=True)
         # อัปโหลด
         file = drive_service.files().create(body=metadata, media_body=media, fields='id, webViewLink').execute()
-        # เปิดสิทธิ์เป็น Public (Anyone with link)
+        # เปิดสิทธิ์ (Public Link)
         drive_service.permissions().create(fileId=file.get('id'), body={'type': 'anyone', 'role': 'reader'}).execute()
         return file.get('webViewLink')
     except Exception as e:
         st.error(f"Google Drive Error: {e}")
         return None
 
-# --- 4. CSS แต่งสวย (ปุ่มฟ้า/เขียว + กึ่งกลาง) ---
+# --- 4. CSS แต่งสวย ---
 st.markdown("""
     <style>
         .block-container { max-width: 420px; padding-top: 2rem; margin: auto; }
         
-        /* ปุ่มเข้าสู่ระบบ (ฟ้า) */
         div[data-testid="stFormSubmitButton"] > button {
             background-color: #1877f2 !important; color: white !important; border: none !important;
             font-weight: bold !important; height: 48px !important; width: 100% !important; border-radius: 8px !important;
         }
         
-        /* ปุ่มสร้างบัญชี / ยืนยัน (เขียว) */
         div.stButton > button[kind="primary"] {
             background-color: #42b72a !important; color: white !important; border: none !important;
             font-weight: bold !important; height: 48px !important; width: 100% !important; border-radius: 8px !important;
         }
         
-        /* ปุ่มลิงก์ (ตัวหนังสือ) */
         div.stButton > button[kind="secondary"] {
             background: transparent !important; border: none !important; color: #1877f2 !important;
-            height: auto !important; padding: 0 !important; width: 100% !important;
+            height: auto !important; padding: 0 !important; width: 100% !important; text-decoration: none !important;
         }
         div.stButton > button[kind="secondary"]:hover { text-decoration: underline !important; }
         
@@ -119,7 +121,6 @@ elif st.session_state.page == 'signup':
         p1 = st.text_input("รหัสผ่าน", type="password", placeholder="รหัสผ่าน 6-13 ตัว")
         p2 = st.text_input("ยืนยันรหัสผ่าน", type="password", placeholder="ยืนยันรหัสผ่าน")
         
-        # Hack ให้ปุ่ม Form เป็นสีเขียว
         st.markdown("""<style>div[data-testid="stFormSubmitButton"] > button { background-color: #42b72a !important; }</style>""", unsafe_allow_html=True)
         
         if st.form_submit_button("สมัครสมาชิก"):
@@ -148,9 +149,7 @@ elif st.session_state.page == 'game':
     st.markdown("---")
     
     try:
-        # 1. ดึงภารกิจจาก Admin
         missions = supabase.table("missions").select("*").eq("is_active", True).order("id").execute().data
-        # 2. ดึงงานที่ส่งแล้ว
         my_subs = supabase.table("submissions").select("mission_id").eq("user_username", me['username']).execute().data
         done_ids = [s['mission_id'] for s in my_subs]
         
@@ -161,7 +160,6 @@ elif st.session_state.page == 'game':
             status = "✅ ส่งแล้ว" if is_done else "🔴 รอส่ง"
             bg = "#e8f5e9" if is_done else "white"
             
-            # วาดการ์ด
             st.markdown(f"""
             <div class="mission-card" style="background-color: {bg};">
                 <div style="display:flex; justify-content:space-between;">
@@ -172,7 +170,6 @@ elif st.session_state.page == 'game':
             </div>
             """, unsafe_allow_html=True)
             
-            # ปุ่มอัปโหลด
             if not is_done:
                 upl = st.file_uploader(f"ส่งงาน: {m['title']}", type=['jpg','png'], key=f"u_{m['id']}")
                 if upl:
@@ -192,7 +189,6 @@ elif st.session_state.page == 'game':
     except Exception as e: st.error(f"โหลดข้อมูลไม่ได้: {e}")
     
     st.markdown("---")
-    # ปุ่ม Logout สีแดง
     st.markdown("""<style>div.stButton > button[kind="secondaryForm"] { background-color: #ff4b4b !important; color: white !important; }</style>""", unsafe_allow_html=True)
     if st.button("ออกจากระบบ", type="primary", key="logout"):
         st.session_state.user = None
