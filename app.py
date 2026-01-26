@@ -167,7 +167,41 @@ elif st.session_state.page == 'game':
     u = st.session_state.user 
 
     if st.session_state.selected_mission is None:
-        # --- 1. Logic ดึงคะแนน EXP ---
+        # --- 1. Logic ดึงคะแนน EXP และคำนวณ Rank ---
+        try:
+            points_res = supabase.table("submissions").select("points").eq("user_username", u['username']).execute().data
+            total_exp = sum(p['points'] for p in points_res if p.get('points'))
+        except:
+            total_exp = 0
+
+        # กำหนด Rank และคำนวณ Progress ตามช่วงที่พี่สั่ง
+        if total_exp <= 100:
+            rank = "Beginner"
+            progress = total_exp / 100
+        elif total_exp <= 300:
+            rank = "Pro"
+            progress = (total_exp - 100) / 200
+        elif total_exp <= 600:
+            rank = "Expert"
+            progress = (total_exp - 300) / 300
+        elif total_exp <= 999:
+            rank = "Guardian"
+            progress = (total_exp - 600) / 399
+        else:
+            rank = "Legendary"
+            progress = 1.0
+
+        # --- 2. การแสดงผล Header: Rank (ซ้าย) | Username (ขวา) ---
+        col_title, col_user = st.columns([0.6, 0.4])
+        with col_title:
+            st.markdown(f"### 🏆 {rank}") # แสดงชื่อ Rank เช่น Beginner, Pro
+        with col_user:
+            st.markdown(f"<p style='text-align: right; margin-top: 10px;'>👤 <b>{u['username']}</b></p>", unsafe_allow_html=True)
+        
+        # --- 3. แสดงแถบ EXP ---
+        st.write(f"EXP รวม: {total_exp}")
+        st.progress(progress)
+        st.write("---")
         try:
             points_res = supabase.table("submissions").select("points").eq("user_username", u['username']).execute().data
             total_exp = sum(p['points'] for p in points_res if p.get('points'))
@@ -233,7 +267,7 @@ elif st.session_state.page == 'game':
         st.info(f"💡 วิธีทำ: {m_data.get('description', 'ส่งรูปถ่ายกิจกรรม')}")
         f = st.file_uploader("📸 แนบรูปถ่าย", type=['jpg','png','jpeg'])
         
-        # 🛑 เพิ่มปุ่ม "ส่งภารกิจ" ตามที่พี่ต้องการครับ
+        # 🛑 เพิ่มปุ่ม "ส่งภารกิจ" 
         if f:
             if st.button("ส่งภารกิจ", type="secondary", use_container_width=True):
                 with st.spinner("กำลังอัปโหลด..."):
