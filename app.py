@@ -477,60 +477,52 @@ elif st.session_state.page == 'admin_dashboard':
     if st.button("🚪 ออกจากระบบ", use_container_width=True, key="admin_logout_main"):
         st.session_state.user = None
         st.query_params.clear()
-        go_to('login')
-# =========================================================
-# 🎮 หน้า BONUS GAME: วิ่งสู้ฟัดล่าหมวกกันน็อก (วางล่างสุดของไฟล์)
+        go_to('login')# =========================================================
+# 🎮 หน้า BONUS GAME: วิ่งสู้ฟัดล่าหมวกกันน็อก (Responsive Version)
 # =========================================================
 elif st.session_state.page == 'bonus_game':
-    st.markdown("<h2 style='text-align: center; color:#1877f2;'>🏃‍♂️ วิ่งเก็บหมวก...กระโดดหลบกรวย!</h2>", unsafe_allow_html=True)
-    st.write("---")
+    # ส่วนหัวหน้าเกม
+    st.markdown("<h2 style='text-align: center; color:#1877f2; margin-bottom:0;'>🏃‍♂️ Traffic Runner</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color:#555;'>กระโดดเก็บหมวก 🪖 และหลบกรวย 🚧</p>", unsafe_allow_html=True)
 
-        game_html = """
+    # --- ตัวเกม HTML5 + JavaScript (ฉบับแก้สัดส่วนมือถือ) ---
+    game_html = """
     <!DOCTYPE html>
     <html>
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <style>
-            body { 
-                margin: 0; 
-                display: flex; 
-                flex-direction: column; 
-                align-items: center; 
-                font-family: sans-serif; 
-                background: transparent; 
-                touch-action: none; /* ป้องกันการเลื่อนหน้าจอไปมาตอนกดเล่นเกม */
-            }
+            body { margin: 0; display: flex; flex-direction: column; align-items: center; font-family: 'Arial', sans-serif; background: transparent; touch-action: none; }
             #game-container { 
                 position: relative; 
-                width: 95vw; /* กว้าง 95% ของหน้าจอ */
-                max-width: 600px; /* แต่กว้างสุดไม่เกิน 600px (สำหรับคอม) */
-                aspect-ratio: 2 / 1; /* รักษาอัตราส่วน กว้าง 2 สูง 1 เสมอ */
+                width: 95vw; 
+                max-width: 600px; 
+                aspect-ratio: 2 / 1; 
                 background: #87CEEB; 
                 border: 3px solid #003366; 
-                border-radius: 10px; 
+                border-radius: 15px; 
                 overflow: hidden; 
+                box-shadow: 0 8px 16px rgba(0,0,0,0.2);
             }
             #ui { 
                 position: absolute; top: 10px; left: 10px; 
                 font-size: 14px; font-weight: bold; color: #003366; 
-                z-index: 5; background: rgba(255,255,255,0.7); 
-                padding: 4px 8px; border-radius: 8px; 
+                z-index: 5; background: rgba(255,255,255,0.8); 
+                padding: 5px 10px; border-radius: 20px; 
             }
             #game-over { 
                 display: none; position: absolute; top: 50%; left: 50%; 
                 transform: translate(-50%, -50%); background: white; 
-                padding: 15px; border-radius: 10px; text-align: center; 
-                box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 10; width: 80%;
+                padding: 20px; border-radius: 15px; text-align: center; 
+                box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 10; width: 70%;
+                border: 3px solid #1877f2;
             }
-            canvas { 
-                display: block; 
-                width: 100%; /* ยืดขยายตาม container */
-                height: 100%; 
-            }
+            canvas { display: block; width: 100%; height: 100%; }
             button { 
-                padding: 10px 20px; background: #1877f2; color: white; 
-                border: none; border-radius: 5px; font-size: 16px; margin-top: 10px; 
+                padding: 10px 25px; background: #1877f2; color: white; 
+                border: none; border-radius: 8px; font-size: 16px; font-weight: bold;
+                cursor: pointer; margin-top: 10px;
             }
         </style>
     </head>
@@ -539,9 +531,9 @@ elif st.session_state.page == 'bonus_game':
             <div id="ui">Score: 0 | High: 0</div>
             <canvas id="gameCanvas" width="600" height="300"></canvas>
             <div id="game-over">
-                <h2 style="color:red; margin:0;">😵 พลาดท่าชนกรวย!</h2>
-                <p id="final-score" style="font-size:16px; margin:10px 0;"></p>
-                <button onclick="resetGame()">เล่นใหม่อีกครั้ง</button>
+                <h2 style="color:#1877f2; margin:0;">🏁 จบเกม!</h2>
+                <p id="final-score" style="font-size:18px; margin:10px 0; font-weight:bold;"></p>
+                <button onclick="resetGame()">ลองอีกรอบ!</button>
             </div>
         </div>
 
@@ -557,14 +549,14 @@ elif st.session_state.page == 'bonus_game':
             let obstacles = [], helmets = [];
 
             function spawnObstacle() {
-                if (frame % 90 === 0) {
+                if (frame % Math.floor(100 - speed) === 0) {
                     obstacles.push({ x: 600, y: 230, w: 30, h: 40, type: '🚧' });
                 }
             }
 
             function spawnHelmet() {
-                if (frame % 150 === 0) {
-                    helmets.push({ x: 600, y: 120 + Math.random()*60, w: 35, h: 35, type: '🪖' });
+                if (frame % 160 === 0) {
+                    helmets.push({ x: 600, y: 100 + Math.random()*80, w: 35, h: 35, type: '🪖' });
                 }
             }
 
@@ -579,35 +571,40 @@ elif st.session_state.page == 'bonus_game':
                 if (isGameOver) return;
                 ctx.clearRect(0, 0, 600, 300);
                 frame++; score += 0.1;
-                if (frame % 800 === 0) speed += 0.5;
+                if (frame % 1000 === 0) speed += 0.5;
 
-                // Player logic
+                // --- 🛣️ วาดถนน ---
+                ctx.fillStyle = "#555";
+                ctx.fillRect(0, 270, 600, 30);
+                ctx.strokeStyle = "#FFF";
+                ctx.setLineDash([15, 10]);
+                ctx.beginPath(); ctx.moveTo(0, 285); ctx.lineTo(600, 285); ctx.stroke();
+
+                // --- 🏃‍♂️ ตัวละคร ---
                 player.dy += player.gravity;
                 player.y += player.dy;
                 if (player.y > 210) { player.y = 210; player.dy = 0; player.grounded = true; }
-
                 ctx.font = "45px Arial";
                 ctx.fillText("🏃‍♂️", player.x, player.y + 40);
 
-                // Obstacles
+                // --- 🚧 สิ่งกีดขวาง ---
                 spawnObstacle();
                 obstacles.forEach((o, i) => {
                     o.x -= speed;
-                    ctx.font = "30px Arial";
-                    ctx.fillText(o.type, o.x, o.y + 30);
-                    // Collision
+                    ctx.font = "35px Arial";
+                    ctx.fillText(o.type, o.x, o.y + 35);
                     if (o.x < player.x + 25 && o.x + 20 > player.x && o.y < player.y + 40 && o.y + 30 > player.y) {
                         isGameOver = true;
                     }
                     if (o.x < -50) obstacles.splice(i, 1);
                 });
 
-                // Helmets
+                // --- 🪖 ของเก็บ ---
                 spawnHelmet();
                 helmets.forEach((h, i) => {
                     h.x -= speed;
-                    ctx.font = "30px Arial";
-                    ctx.fillText(h.type, h.x, h.y + 30);
+                    ctx.font = "35px Arial";
+                    ctx.fillText(h.type, h.x, h.y + 35);
                     if (h.x < player.x + 35 && h.x + 20 > player.x && h.y < player.y + 40 && h.y + 30 > player.y) {
                         helmets.splice(i, 1); score += 50;
                     }
@@ -619,20 +616,19 @@ elif st.session_state.page == 'bonus_game':
 
                 if (isGameOver) {
                     gameOverUI.style.display = 'block';
-                    finalScoreUI.innerHTML = `คะแนน: ${Math.floor(score)}`;
+                    finalScoreUI.innerHTML = `คะแนนรวม: ${Math.floor(score)}`;
                 } else {
                     requestAnimationFrame(animate);
                 }
             }
 
-            // รองรับทั้ง Spacebar, คลิกเมาส์ และ แตะหน้าจอ
             const handleJump = (e) => {
                 if (e.type === 'keydown' && e.code !== 'Space') return;
                 if (player.grounded && !isGameOver) {
                     player.dy = player.jump;
                     player.grounded = false;
                 }
-                if (e.cancelable) e.preventDefault(); // กันหน้าจอเลื่อน
+                if (e.cancelable) e.preventDefault();
             };
 
             window.addEventListener('keydown', handleJump);
@@ -644,16 +640,18 @@ elif st.session_state.page == 'bonus_game':
     </body>
     </html>
     """
-
     
     import streamlit.components.v1 as components
-    components.html(game_html, height=450)
+    # แสดงผลเกมด้วยความกว้างที่เหมาะสม
+    components.html(game_html, height=400)
 
-    # --- ปุ่มกลับหน้าหลัก ---
+    # --- ปุ่มกลับหน้าหลัก (ตรวจสอบสิทธิ์เพื่อส่งกลับหน้าเดิม) ---
     st.write("---")
-    if st.button("⬅️ กลับไปหน้าหลัก", use_container_width=True):
-        if st.session_state.user['role'] == 'admin':
-            st.session_state.page = 'admin_dashboard'
-        else:
-            st.session_state.page = 'game'
-        st.rerun()
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("⬅️ กลับไปหน้าหลัก", use_container_width=True):
+            if st.session_state.user.get('role') == 'admin':
+                st.session_state.page = 'admin_dashboard'
+            else:
+                st.session_state.page = 'game'
+            st.rerun()
