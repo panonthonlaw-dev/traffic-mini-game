@@ -5,7 +5,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import time
 
-# --- 1. ตั้งค่าพื้นฐาน (ห้ามลบ) ---
+# --- 1. ตั้งค่าหน้าเวป ---
 st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
 
 # --- 2. การเชื่อมต่อระบบ ---
@@ -22,29 +22,40 @@ except Exception as e:
     st.error(f"❌ ระบบเชื่อมต่อไม่ได้: {e}")
     st.stop()
 
-# --- 3. CSS ฉบับ Nuclear Option (บังคับสีทุกจุด) ---
+# --- 3. CSS ฉบับ Nuclear Option (ปรับปรุงจากตัวที่พี่ใช้ได้) ---
 st.markdown("""
     <style>
-        /* บังคับพื้นหลังเทาขาว */
+        /* พื้นหลังเทาขาว */
         .stApp { background-color: #f8f9fa !important; }
 
-        /* จัดกรอบ Input ให้ลูกตาอยู่ข้างในและตัวหนังสือชิดซ้าย */
+        /* ✅ จัดกรอบขาว: ครอบทั้งช่อง Input และ ลูกตา */
         div[data-testid="stTextInput"] > div {
             background-color: white !important;
             border: 1px solid #dcdfe3 !important;
             border-radius: 10px !important;
             padding: 2px !important;
         }
+
+        /* ✅ ตัวหนังสือ: น้ำเงินเข้ม (#003366) และ ชิดซ้าย */
         input {
             color: #003366 !important;
+            -webkit-text-fill-color: #003366 !important;
             text-align: left !important;
             border: none !important;
             box-shadow: none !important;
+            background-color: transparent !important;
         }
+        
+        /* ชื่อหัวข้อช่องกรอก */
         label { color: #003366 !important; font-weight: bold !important; }
-        button[data-testid="stTextInputPasswordToggle"] { color: #1877f2 !important; }
 
-        /* 🔵 ปุ่มเข้าสู่ระบบ (ปุ่มในฟอร์ม) - บังคับสีฟ้า */
+        /* ✅ ลูกตา: บังคับให้อยู่ในกรอบขาว และเป็นสีฟ้า */
+        button[data-testid="stTextInputPasswordToggle"] {
+            color: #1877f2 !important;
+            background-color: transparent !important;
+        }
+
+        /* 🔵 ปุ่มเข้าสู่ระบบ: บังคับสีฟ้า */
         div[data-testid="stFormSubmitButton"] > button {
             background-color: #1877f2 !important;
             color: white !important;
@@ -55,8 +66,7 @@ st.markdown("""
             border-radius: 10px !important;
         }
 
-        /* 🟢 ฆ่าสีดำทิ้ง! บังคับปุ่มสร้างบัญชีใหม่เป็นสีเขียว */
-        /* เราจะใช้ Selector ที่เจาะจงมาก ๆ เพื่อให้มันไม่เพี้ยน */
+        /* 🟢 ปุ่มสร้างบัญชีใหม่: ใช้ kind="secondary" ตามที่พี่คอนเฟิร์มว่าเวิร์ก */
         div.stButton > button[kind="secondary"] {
             background-color: #42b72a !important;
             color: white !important;
@@ -67,7 +77,6 @@ st.markdown("""
             border-radius: 10px !important;
         }
         
-        /* สไตล์ตอนเอาเมาส์ไปชี้ปุ่มเขียว */
         div.stButton > button[kind="secondary"]:hover {
             background-color: #369622 !important;
             color: white !important;
@@ -101,7 +110,6 @@ if st.session_state.page == 'login':
         with st.form("login_form"):
             u = st.text_input("Username", placeholder="ระบุชื่อผู้ใช้")
             p = st.text_input("Password", placeholder="ระบุรหัสผ่าน", type="password")
-            # ปุ่มนี้จะเป็นสีฟ้าอัตโนมัติจาก CSS Primary
             if st.form_submit_button("เข้าสู่ระบบ", use_container_width=True):
                 res = supabase.table("users").select("*").eq("username", u).execute()
                 if res.data and res.data[0]['password'] == p:
@@ -111,7 +119,7 @@ if st.session_state.page == 'login':
 
         st.write("---")
         
-        # 🟢 ปุ่มสร้างบัญชีใหม่ (ชนิด secondary จะถูกบังคับเป็นสีเขียวด้วย CSS)
+        # 🟢 ปุ่มสร้างบัญชีใหม่ (ใช้ type="secondary" เพื่อให้แมตช์กับ CSS kind="secondary")
         if st.button("สร้างบัญชีใหม่", use_container_width=True, type="secondary"):
             go_to('signup')
 
@@ -125,7 +133,6 @@ elif st.session_state.page == 'signup':
             user = st.text_input("ชื่อผู้ใช้", placeholder="Username")
             phone = st.text_input("เบอร์โทร", placeholder="เบอร์โทรศัพท์")
             pw = st.text_input("รหัสผ่าน", type="password")
-            # ใน Form เราใช้ Submit Button สีฟ้า
             if st.form_submit_button("ยืนยันลงทะเบียน", use_container_width=True):
                 try:
                     supabase.table("users").insert({"fullname":name,"username":user,"phone":phone,"password":pw}).execute()
@@ -134,13 +141,13 @@ elif st.session_state.page == 'signup':
         if st.button("ย้อนกลับ", use_container_width=True, type="secondary"): 
             go_to('login')
 
-# 🎮 หน้าหลัก/ภารกิจ (คงเดิม)
+# 🎮 หน้าหลัก/ภารกิจ
 elif st.session_state.page == 'game':
     u = st.session_state.user
-    st.markdown(f"<h3 style='text-align: center; color: #003366;'>สวัสดีคุณ {u['fullname']}</h3>", unsafe_allow_html=True)
+    st.markdown(f"<h4 style='text-align: center; color: #003366;'>ยินดีต้อนรับคุณ {u['fullname']} 👋</h4>", unsafe_allow_html=True)
     _, col, _ = st.columns([1, 5, 1])
     with col:
-        # โค้ดแสดงภารกิจ (แสดงแค่ชื่อพอให้เห็นภาพ)
+        # แสดงภารกิจแบบการ์ด
         st.markdown('<div class="mission-card"><b>ภารกิจที่ 1: ตรวจเช็คหมวกกันน็อก</b></div>', unsafe_allow_html=True)
         if st.button("ออกจากระบบ", use_container_width=True, type="secondary"):
             st.session_state.user = None
