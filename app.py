@@ -1,4 +1,14 @@
-🚨 เกิดข้อผิดพลาด: name 'io' is not defined
+import streamlit as st
+from supabase import create_client
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+import time
+import re
+from datetime import datetime
+import io  # ต้องมีตัวนี้ด้วยนะพี่ ที่เราคุยกันไว้
+
+
 
 # --- 1. ตั้งค่าหน้าเว็บ ---
 st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
