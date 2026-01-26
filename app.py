@@ -4,11 +4,12 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import time
+import re  # ใช้สำหรับตรวจสอบรูปแบบข้อความ (Regex)
 
 # --- 1. ตั้งค่าพื้นฐาน ---
 st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
 
-# --- 2. การเชื่อมต่อระบบ ---
+# --- 2. การเชื่อมต่อระบบ (คงเดิม) ---
 try:
     supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     gcp_info = dict(st.secrets["gcp_service_account"])
@@ -22,21 +23,16 @@ except Exception as e:
     st.error(f"❌ ระบบเชื่อมต่อไม่ได้: {e}")
     st.stop()
 
-# --- 3. CSS ฉบับ Nuclear Option (เพิ่มสไตล์ตัวหนังสือลืมรหัส) ---
+# --- 3. CSS ฉบับ Nuclear Option (คงเดิม) ---
 st.markdown("""
     <style>
-        /* พื้นหลังเทาขาว */
         .stApp { background-color: #f8f9fa !important; }
-
-        /* จัดกรอบขาว: ครอบทั้งช่อง Input และ ลูกตา */
         div[data-testid="stTextInput"] > div {
             background-color: white !important;
             border: 1px solid #dcdfe3 !important;
             border-radius: 10px !important;
             padding: 2px !important;
         }
-
-        /* ตัวหนังสือ: น้ำเงินเข้ม (#003366) และ ชิดซ้าย */
         input {
             color: #003366 !important;
             -webkit-text-fill-color: #003366 !important;
@@ -45,17 +41,8 @@ st.markdown("""
             box-shadow: none !important;
             background-color: transparent !important;
         }
-        
-        /* ชื่อหัวข้อช่องกรอก */
         label { color: #003366 !important; font-weight: bold !important; }
-
-        /* ลูกตา: บังคับให้อยู่ในกรอบขาว และเป็นสีฟ้า */
-        button[data-testid="stTextInputPasswordToggle"] {
-            color: #1877f2 !important;
-            background-color: transparent !important;
-        }
-
-        /* 🔵 ปุ่มเข้าสู่ระบบ: สีฟ้า */
+        button[data-testid="stTextInputPasswordToggle"] { color: #1877f2 !important; }
         div[data-testid="stFormSubmitButton"] > button {
             background-color: #1877f2 !important;
             color: white !important;
@@ -65,8 +52,6 @@ st.markdown("""
             width: 100% !important;
             border-radius: 10px !important;
         }
-
-        /* 🟢 ปุ่มสร้างบัญชีใหม่: สีเขียว (kind="secondary") */
         div.stButton > button[kind="secondary"] {
             background-color: #42b72a !important;
             color: white !important;
@@ -76,26 +61,14 @@ st.markdown("""
             width: 100% !important;
             border-radius: 10px !important;
         }
-        
-        /* 🔵 ข้อความลืมรหัสผ่าน: สีฟ้าตัวเล็ก */
         .forgot-text {
-            color: #1877f2;
-            font-size: 13px;
-            text-align: center;
-            margin-top: -10px;
-            margin-bottom: 10px;
-            font-family: sans-serif;
-        }
-        
-        /* สไตล์ Card ภารกิจ */
-        .mission-card {
-            background: white; padding: 15px; border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #eee; margin-bottom: 12px;
+            color: #1877f2; font-size: 13px; text-align: center;
+            margin-top: -10px; margin-bottom: 10px;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 4. การจัดการหน้าจอ ---
+# --- 4. ฟังก์ชันจัดการหน้าจอ ---
 if 'page' not in st.session_state: st.session_state.page = 'login'
 if 'user' not in st.session_state: st.session_state.user = None
 
@@ -105,11 +78,10 @@ def go_to(page):
 
 # --- 5. การแสดงผลหน้าจอ ---
 
-# 🔵 หน้า LOGIN
+# 🔵 หน้า LOGIN (คงเดิมตามมาตรฐานพี่)
 if st.session_state.page == 'login':
     st.markdown("<h1 style='text-align: center; color:#1877f2;'>traffic game</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #003366; font-weight: bold;'>เล่นเปลี่ยนรอด</p>", unsafe_allow_html=True)
-    
     _, col, _ = st.columns([1, 4, 1])
     with col:
         with st.form("login_form"):
@@ -121,35 +93,72 @@ if st.session_state.page == 'login':
                     st.session_state.user = res.data[0]
                     go_to('game')
                 else: st.error("❌ ข้อมูลไม่ถูกต้อง")
-
-        # ✨ เพิ่มข้อความระบุลืมรหัสผ่าน (สีฟ้าตัวเล็ก)
         st.markdown('<p class="forgot-text">คุณลืมรหัสผ่านใช่ไหม</p>', unsafe_allow_html=True)
-
         st.write("---")
-        
-        # 🟢 ปุ่มสร้างบัญชีใหม่
         if st.button("สร้างบัญชีใหม่", use_container_width=True, type="secondary"):
             go_to('signup')
 
-# 🟢 หน้าสมัครสมาชิก (คงเดิม)
+# 🟢 หน้าสมัครสมาชิก (เพิ่มเงื่อนไขการตรวจสอบตามสั่ง)
 elif st.session_state.page == 'signup':
     st.markdown("<h2 style='text-align: center; color: #003366;'>สมัครสมาชิก</h2>", unsafe_allow_html=True)
     _, col, _ = st.columns([1, 4, 1])
     with col:
         with st.form("signup_form"):
-            name = st.text_input("ชื่อ-นามสกุล", placeholder="ชื่อจริง")
-            user = st.text_input("ชื่อผู้ใช้", placeholder="Username")
-            phone = st.text_input("เบอร์โทร", placeholder="เบอร์โทรศัพท์")
-            pw = st.text_input("รหัสผ่าน", type="password")
-            if st.form_submit_button("ยืนยันลงทะเบียน", use_container_width=True):
-                try:
-                    supabase.table("users").insert({"fullname":name,"username":user,"phone":phone,"password":pw}).execute()
-                    st.success("✅ สมัครสำเร็จ!"); time.sleep(1); go_to('login')
-                except: st.error("❌ ชื่อผู้ใช้นี้มีคนใช้แล้ว")
+            fullname = st.text_input("ชื่อ-นามสกุล (ภาษาไทยเท่านั้น)", placeholder="เช่น สมชาย ใจดี")
+            username = st.text_input("ชื่อผู้ใช้ (อังกฤษ/ตัวเลข 6-12 ตัว)", placeholder="Username")
+            phone = st.text_input("เบอร์โทรศัพท์ (10 หลัก ขึ้นต้นด้วย 06, 08, 09)", placeholder="08XXXXXXXX")
+            password = st.text_input("รหัสผ่าน (อังกฤษ/ตัวเลข 6-12 ตัว)", type="password")
+            confirm_pw = st.text_input("ยืนยันรหัสผ่านอีกครั้ง", type="password")
+            
+            submit = st.form_submit_button("ยืนยันลงทะเบียน", use_container_width=True)
+            
+            if submit:
+                # --- ส่วนตรวจสอบเงื่อนไข ---
+                errors = []
+                
+                # 1. ตรวจสอบชื่อไทย (รวมช่องว่าง)
+                if not re.match(r'^[ก-ฮะ-์\s]+$', fullname):
+                    errors.append("❌ ชื่อ-นามสกุล ต้องเป็นภาษาไทยเท่านั้น")
+                
+                # 2. ตรวจสอบชื่อผู้ใช้ (อังกฤษ/เลข 6-12 ตัว)
+                if not re.match(r'^[a-zA-Z0-9]{6,12}$', username):
+                    errors.append("❌ ชื่อผู้ใช้ต้องเป็นภาษาอังกฤษหรือตัวเลข ความยาว 6-12 ตัวอักษร")
+                
+                # 3. ตรวจสอบเบอร์โทร (10 หลัก ขึ้นต้นด้วย 06, 08, 09)
+                if not re.match(r'^0[689][0-9]{8}$', phone):
+                    errors.append("❌ เบอร์โทรต้องมี 10 หลัก และขึ้นต้นด้วย 06, 08 หรือ 09 เท่านั้น")
+                
+                # 4. ตรวจสอบรหัสผ่าน (อังกฤษ/เลข 6-12 ตัว)
+                if not re.match(r'^[a-zA-Z0-9]{6,12}$', password):
+                    errors.append("❌ รหัสผ่านต้องเป็นภาษาอังกฤษหรือตัวเลข ความยาว 6-12 ตัวอักษร")
+                
+                # 5. ตรวจสอบรหัสผ่านให้ตรงกัน
+                if password != confirm_pw:
+                    errors.append("❌ รหัสผ่านทั้งสองช่องไม่ตรงกัน")
+
+                # --- ผลลัพธ์การตรวจสอบ ---
+                if errors:
+                    for err in errors:
+                        st.error(err)
+                else:
+                    try:
+                        # บันทึกลง Supabase
+                        supabase.table("users").insert({
+                            "fullname": fullname,
+                            "username": username,
+                            "phone": phone,
+                            "password": password
+                        }).execute()
+                        st.success("✅ สมัครสมาชิกสำเร็จ!")
+                        time.sleep(1.5)
+                        go_to('login')
+                    except Exception as e:
+                        st.error(f"❌ เกิดข้อผิดพลาด: ชื่อผู้ใช้นี้อาจมีคนใช้แล้ว")
+
         if st.button("ย้อนกลับ", use_container_width=True, type="secondary"): 
             go_to('login')
 
-# 🎮 หน้าหลัก/ภารกิจ
+# 🎮 หน้าหลัก/ภารกิจ (คงเดิม)
 elif st.session_state.page == 'game':
     u = st.session_state.user
     st.markdown(f"<h3 style='text-align: center; color: #003366;'>สวัสดีคุณ {u['fullname']}</h3>", unsafe_allow_html=True)
