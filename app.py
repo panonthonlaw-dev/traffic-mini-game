@@ -160,19 +160,40 @@ elif st.session_state.page == 'forgot':
 
 # 🎮 หน้ากิจกรรม (Player)
 elif st.session_state.page == 'game':
-    if st.session_state.user is None: go_to('login')
-    u = st.session_state.user
-    
     if st.session_state.selected_mission is None:
-        st.markdown(f"### สวัสดีคุณ {u['fullname']} 👋")
+        # --- 1. Logic ดึงคะแนน EXP (เพิ่มแค่ตรงนี้) ---
+        try:
+            points_res = supabase.table("submissions").select("points").eq("user_username", u['username']).execute().data
+            total_exp = sum(p['points'] for p in points_res if p.get('points'))
+        except:
+            total_exp = 0
+
+        # สูตรเลเวล (ตัวอย่าง: 100 EXP = 1 Level)
+        level = (total_exp // 100) + 1
+        progress = (total_exp % 100) / 100
+
+        # --- 2. การแสดงผล Header: ชื่อภารกิจ (ซ้าย) | Username (ขวา) ---
+        col_title, col_user = st.columns([0.6, 0.4])
+        with col_title:
+            st.markdown(f"### 🏆 Level {level}")
+        with col_user:
+            # ใช้ inline style นิดเดียวเพื่อดันตัวหนังสือชิดขวาตามสั่งครับ
+            st.markdown(f"<p style='text-align: right; margin-top: 10px;'>👤 <b>{u['username']}</b></p>", unsafe_allow_html=True)
+        
+        # --- 3. แสดงแถบ EXP ---
+        st.write(f"EXP รวม: {total_exp}")
+        st.progress(progress)
         st.write("---")
+
+        # --- 4. รายการภารกิจ (โค้ดเดิมของพี่) ---
         missions = supabase.table("missions").select("*").eq("is_active", True).execute().data
         today = datetime.now().strftime("%Y-%m-%d")
-        subs = supabase.table("submissions").select("mission_id").eq("user_username", u['username']).gte("created_at", today).execute().data
-        done_ids = [s['mission_id'] for s in subs]
+        subs = supabase.table("submissions").select("*").eq("user_username", u['username']).gte("created_at", today).execute().data
+        done_dict = {s['mission_id']: s for s in subs}
 
         for m in missions:
-            is_done = m['id'] in done_ids
+            m_sub = done_dict.get(m['id'])
+            is_done = m['id'] in done_dict
             c1, c2 = st.columns([0.75, 0.25])
             with c1:
                 st.markdown('<div class="thin-btn-green">', unsafe_allow_html=True)
@@ -181,8 +202,16 @@ elif st.session_state.page == 'game':
                     st.rerun()
                 st.markdown('</div>', unsafe_allow_html=True)
             with c2:
-                status_color = "#42b72a" if is_done else "#888"
-                status_text = "✅ ส่งแล้ว" if is_done else "⭕ รอยืนยัน"
+                if m_sub and m_sub.get('status') == 'approved':
+                    status_color = "#42b72a"
+                    status_text = f"✅ +{m_sub['points']} EXP"
+                elif is_done:
+                    status_color = "#42b72a"
+                    status_text = "✅ รอตรวจ"
+                else:
+                    status_color = "#888"
+                    status_text = "⭕ ยังไม่ส่ง"
+                
                 st.markdown(f'<div class="status-right" style="color:{status_color};">{status_text}</div>', unsafe_allow_html=True)
             
     else:
