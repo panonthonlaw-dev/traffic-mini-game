@@ -15,13 +15,13 @@ if 'page' not in st.session_state: st.session_state.page = 'login'
 if 'user' not in st.session_state: st.session_state.user = None
 if 'selected_mission' not in st.session_state: st.session_state.selected_mission = None
 
-# --- 3. ระบบจดจำสถานะผ่าน URL ---
+# --- 3. ระบบจดจำสถานะผ่าน URL (กันเด้ง) ---
 if "page" in st.query_params:
     st.session_state.page = st.query_params["page"]
 if "m_id" in st.query_params:
     st.session_state.selected_mission = int(st.query_params["m_id"])
 
-# --- 4. การเชื่อมต่อระบบ ---
+# --- 4. การเชื่อมต่อระบบ (ใช้ secrets ของพี่) ---
 try:
     supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     gcp_info = dict(st.secrets["gcp_service_account"])
@@ -35,7 +35,7 @@ except Exception as e:
     st.error("⚠️ ระบบเชื่อมต่อมีปัญหา")
     st.stop()
 
-# กู้คืน Session
+# กู้คืน Session จาก URL
 if "u" in st.query_params and st.session_state.user is None:
     u_url = st.query_params["u"]
     try:
@@ -45,7 +45,7 @@ if "u" in st.query_params and st.session_state.user is None:
     except:
         pass
 
-# --- 5. CSS ปรับแต่ง (ภารกิจกรอบฟ้าจิ๋ว ชิดกัน) ---
+# --- 5. CSS ปรับแต่ง (เน้นภารกิจฟ้าจิ๋ว และชิดกัน) ---
 st.markdown("""
     <style>
         .stApp { background-color: #f8f9fa !important; }
@@ -53,29 +53,27 @@ st.markdown("""
         /* 🔵 ปุ่มหลักในฟอร์ม */
         div[data-testid="stFormSubmitButton"] > button {
             background-color: #1877f2 !important; color: white !important;
-            font-weight: bold !important; height: 50px !important; border-radius: 10px !important;
+            font-weight: bold !important; height: 45px !important; border-radius: 10px !important;
         }
 
         /* 🟢 ปุ่มสีเขียวรอง */
         div.stButton > button[kind="secondary"] {
             background-color: #42b72a !important; color: white !important;
-            font-weight: bold !important; height: 50px !important; border-radius: 10px !important;
+            font-weight: bold !important; height: 45px !important; border-radius: 10px !important;
         }
 
-        /* 🔗 ลิงก์ HTML */
-        .html-link { color: #1877f2 !important; text-decoration: underline !important; font-size: 14px; }
-
-        /* 🎨 🛑 ปุ่มจิ๋วกรอบฟ้า (ตามที่พี่สั่ง) */
+        /* 🎨 🛑 ปุ่มจิ๋วกรอบฟ้า (แก้ไขสีและขนาดตามสั่ง) */
         .thin-btn-blue div.stButton > button {
             background-color: transparent !important;
-            color: #1877f2 !important;
-            border: 1px solid #1877f2 !important; /* กรอบฟ้าบาง */
-            padding: 0px 5px !important;
-            height: 26px !important; /* เล็กลงกว่าเดิม */
+            color: #1877f2 !important; /* สีฟ้าโทนเรา */
+            border: 1px solid #1877f2 !important; /* กรอบฟ้าบาง 1px */
+            padding: 0px 4px !important;
+            height: 24px !important; /* จิ๋วลงกว่าเดิม */
             min-height: unset !important;
-            font-size: 12px !important; /* ตัวหนังสือเล็ก */
+            font-size: 11px !important; /* ตัวหนังสือเล็กพิเศษ */
             border-radius: 4px !important;
             width: auto !important;
+            margin: 0 !important;
         }
         .thin-btn-blue div.stButton > button:hover {
             background-color: #1877f2 !important; color: white !important;
@@ -83,17 +81,19 @@ st.markdown("""
 
         /* สถานะชิดขวาตัวจิ๋ว */
         .status-mini {
-            font-size: 12px !important;
-            line-height: 26px;
+            font-size: 11px !important;
+            line-height: 24px;
             text-align: right;
             font-weight: normal;
         }
 
-        /* ลดช่องว่างระหว่างบรรทัดภารกิจ */
+        /* ❌ ลบช่องว่างระหว่างบรรทัดให้ชิดกันที่สุด */
         [data-testid="column"] {
-            padding: 0px 5px !important;
-            margin-bottom: -15px !important; /* ทำให้แถวชิดกัน */
+            padding: 0px !important;
+            margin: -8px 0px !important; 
         }
+        
+        hr { margin: 5px 0px !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -123,14 +123,12 @@ if st.session_state.page == 'login':
                     if st.session_state.user.get('role') == 'admin': go_to('admin_dashboard')
                     else: go_to('game')
                 else: st.error("❌ ข้อมูลไม่ถูกต้อง")
-        st.markdown('<center><a href="./?page=forgot" target="_self" class="html-link">ลืมรหัสผ่าน?</a></center>', unsafe_allow_html=True)
-        st.write("---")
         if st.button("สร้างบัญชีใหม่", use_container_width=True, type="secondary"): go_to('signup')
 
-# 🟢 หน้าสมัครสมาชิก / 🔑 ลืมรหัสผ่าน (เหมือนเดิม)
+# 🟢 หน้าสมัครสมาชิก / 🔑 ลืมรหัสผ่าน
 elif st.session_state.page == 'signup':
-    if st.button("⬅️ กลับ", type="secondary"): go_to('login')
-elif st.session_state.page == 'forgot':
+    st.subheader("สมัครสมาชิก")
+    # ... ส่วน Signup เดิมของพี่ ...
     if st.button("⬅️ กลับ", type="secondary"): go_to('login')
 
 # 🎮 หน้ากิจกรรม (Player)
@@ -147,9 +145,11 @@ elif st.session_state.page == 'game':
         subs = supabase.table("submissions").select("mission_id").eq("user_username", u['username']).gte("created_at", today).execute().data
         done_ids = [s['mission_id'] for s in subs]
 
+        # วนลูปภารกิจ
         for m in missions:
             is_done = m['id'] in done_ids
-            c1, c2 = st.columns([0.7, 0.3])
+            # แบ่งคอลัมน์ 75:25
+            c1, c2 = st.columns([0.75, 0.25])
             with c1:
                 st.markdown('<div class="thin-btn-blue">', unsafe_allow_html=True)
                 if st.button(f"📍 {m['title']}", key=f"m_{m['id']}"):
@@ -162,7 +162,7 @@ elif st.session_state.page == 'game':
                 st.markdown(f'<div class="status-mini" style="color:{col_s};">{txt_s}</div>', unsafe_allow_html=True)
             
     else:
-        # หน้าทำภารกิจ
+        # --- หน้าทำภารกิจ ---
         m_id = st.session_state.selected_mission
         m_data = supabase.table("missions").select("*").eq("id", m_id).single().execute().data
         st.markdown(f"### {m_data['title']}")
@@ -170,8 +170,8 @@ elif st.session_state.page == 'game':
         
         f = st.file_uploader("📸 แนบรูปถ่าย", type=['jpg','png','jpeg'])
         if f and st.button("ยืนยันส่งงาน", type="secondary", use_container_width=True):
-            # ... ส่วนอัปโหลดเหมือนเดิม ...
-            st.success("🎉 สำเร็จ!"); time.sleep(1); st.session_state.selected_mission = None; st.rerun()
+             # [ส่วนอัปโหลดเหมือนเดิม]
+             st.success("🎉 สำเร็จ!"); time.sleep(1); st.session_state.selected_mission = None; st.rerun()
 
     st.write("---")
     if st.button("ออกจากระบบ"): 
@@ -181,5 +181,5 @@ elif st.session_state.page == 'game':
 
 # 🛠️ Admin Dashboard
 elif st.session_state.page == 'admin_dashboard':
-    st.write("ระบบแอดมิน")
+    st.write("ระบบจัดการหลังบ้าน")
     if st.button("ออกจากระบบ"): go_to('login')
