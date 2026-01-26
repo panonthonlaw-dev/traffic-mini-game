@@ -5,7 +5,10 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 import time
 
-# --- 1. การเชื่อมต่อระบบ (เหมือนเดิมของพี่) ---
+# --- 1. ตั้งค่าหน้าเวป (ต้องอยู่บรรทัดแรกสุดเสมอ) ---
+st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
+
+# --- 2. การเชื่อมต่อระบบ (คงเดิม) ---
 try:
     supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     gcp_info = dict(st.secrets["gcp_service_account"])
@@ -19,30 +22,72 @@ except Exception as e:
     st.error(f"❌ ระบบเชื่อมต่อไม่ได้: {e}")
     st.stop()
 
-# --- 2. CSS พื้นฐานระดับเวป (คุมสีพื้นและตัวหนังสือชิดซ้าย) ---
+# --- 3. รวมศูนย์ CSS (บังคับสีทุกจุดให้ตายตัว) ---
 st.markdown("""
     <style>
+        /* พื้นหลังเวป */
         .stApp { background-color: #f8f9fa !important; }
-        
-        /* สไตล์ช่องกรอก: บังคับขาว, น้ำเงินเข้ม, ชิดซ้าย, ตาอยู่ข้างใน */
+
+        /* 1. ช่องกรอกข้อมูล + ลูกตาในกรอบ */
         div[data-testid="stTextInput"] > div {
             background-color: white !important;
             border: 1px solid #dcdfe3 !important;
             border-radius: 8px !important;
+            padding: 2px !important;
         }
         input {
             color: #003366 !important;
-            -webkit-text-fill-color: #003366 !important;
             text-align: left !important;
             border: none !important;
             box-shadow: none !important;
         }
         label { color: #003366 !important; font-weight: bold !important; }
         button[data-testid="stTextInputPasswordToggle"] { color: #1877f2 !important; }
+
+        /* 2. ปุ่มเข้าสู่ระบบ (สีฟ้า) */
+        div[data-testid="stFormSubmitButton"] > button {
+            background-color: #1877f2 !important;
+            color: white !important;
+            border: none !important;
+            font-weight: bold !important;
+            height: 48px !important;
+            width: 100% !important;
+        }
+
+        /* 3. ปุ่มลืมรหัสผ่าน (ไร้กรอบ - บังคับด้วย class forgot-btn) */
+        .forgot-btn div[data-testid="stButton"] > button {
+            background-color: transparent !important;
+            border: none !important;
+            color: #1877f2 !important;
+            box-shadow: none !important;
+            text-decoration: none !important;
+            padding: 0 !important;
+            height: auto !important;
+            min-height: unset !important;
+        }
+        .forgot-btn div[data-testid="stButton"] > button:hover {
+            text-decoration: underline !important;
+        }
+
+        /* 4. ปุ่มสร้างบัญชีใหม่ และปุ่มส่งงาน (สีเขียว - บังคับด้วย class green-btn) */
+        .green-btn div[data-testid="stButton"] > button {
+            background-color: #42b72a !important;
+            color: white !important;
+            border: none !important;
+            font-weight: bold !important;
+            height: 48px !important;
+            width: 100% !important;
+        }
+        
+        /* การ์ดภารกิจ */
+        .mission-card {
+            background: white; padding: 15px; border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #eee; margin-bottom: 12px;
+        }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 3. ระบบจัดการหน้าจอ ---
+# --- 4. ระบบจัดการหน้าจอ ---
 if 'page' not in st.session_state: st.session_state.page = 'login'
 if 'user' not in st.session_state: st.session_state.user = None
 
@@ -50,7 +95,7 @@ def go_to(page):
     st.session_state.page = page
     st.rerun()
 
-# --- 4. การแสดงผลหน้าจอ ---
+# --- 5. การแสดงผล ---
 
 # 🔵 หน้า LOGIN
 if st.session_state.page == 'login':
@@ -59,11 +104,10 @@ if st.session_state.page == 'login':
     
     _, col, _ = st.columns([1, 5, 1])
     with col:
-        # ส่วนฟอร์ม Login (ปุ่มฟ้าอัตโนมัติจาก Theme)
         with st.form("login_form"):
             u = st.text_input("ชื่อผู้ใช้", placeholder="Username")
             p = st.text_input("รหัสผ่าน", placeholder="Password", type="password")
-            # ปุ่มเข้าสู่ระบบ สีฟ้า #1877f2
+            # ปุ่มเข้าสู่ระบบ (สีฟ้าอัตโนมัติตาม CSS ด้านบน)
             login_btn = st.form_submit_button("เข้าสู่ระบบ", use_container_width=True)
             if login_btn:
                 res = supabase.table("users").select("*").eq("username", u).execute()
@@ -72,45 +116,16 @@ if st.session_state.page == 'login':
                     go_to('game')
                 else: st.error("❌ ข้อมูลไม่ถูกต้อง")
         
-        # --- ปุ่มลืมรหัสผ่าน (ไร้กรอบ) ---
-        st.markdown("""
-            <style>
-                .forgot-area div[data-testid="stButton"] > button {
-                    border: none !important;
-                    background: transparent !important;
-                    color: #1877f2 !important;
-                    box-shadow: none !important;
-                    padding: 0 !important;
-                    height: auto !important;
-                    min-height: unset !important;
-                }
-                .forgot-area div[data-testid="stButton"] > button:hover {
-                    text-decoration: underline !important;
-                    background: transparent !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
-        st.markdown('<div class="forgot-area">', unsafe_allow_html=True)
+        # ลิงก์ลืมรหัสผ่าน (ไร้กรอบ)
+        st.markdown('<div class="forgot-btn">', unsafe_allow_html=True)
         if st.button("ลืมรหัสผ่านใช่หรือไม่?", use_container_width=True):
             go_to('forgot')
         st.markdown('</div>', unsafe_allow_html=True)
 
         st.write("---")
         
-        # --- ปุ่มสร้างบัญชีใหม่ (สีเขียว) ---
-        st.markdown("""
-            <style>
-                .signup-btn-area div[data-testid="stButton"] > button {
-                    background-color: #42b72a !important;
-                    color: white !important;
-                    border: none !important;
-                    font-weight: bold !important;
-                    height: 48px !important;
-                    border-radius: 8px !important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
-        st.markdown('<div class="signup-btn-area">', unsafe_allow_html=True)
+        # ปุ่มสร้างบัญชีใหม่ (สีเขียว)
+        st.markdown('<div class="green-btn">', unsafe_allow_html=True)
         if st.button("สร้างบัญชีใหม่", use_container_width=True):
             go_to('signup')
         st.markdown('</div>', unsafe_allow_html=True)
@@ -121,14 +136,12 @@ elif st.session_state.page == 'signup':
     _, col, _ = st.columns([1, 5, 1])
     with col:
         with st.form("signup_form"):
-            name = st.text_input("ชื่อ-นามสกุล", placeholder="ระบุชื่อจริง")
+            name = st.text_input("ชื่อ-นามสกุล", placeholder="ชื่อจริง")
             user = st.text_input("ชื่อผู้ใช้", placeholder="Username")
             phone = st.text_input("เบอร์โทร", placeholder="เบอร์โทรศัพท์")
-            pw = st.text_input("รหัสผ่าน", type="password", placeholder="กำหนดรหัสผ่าน")
+            pw = st.text_input("รหัสผ่าน", type="password", placeholder="รหัสผ่าน")
             
-            # ใช้ปุ่มเขียวในหน้านี้ด้วย
-            st.markdown("""<style>.signup-btn-area div[data-testid="stButton"] > button { background-color: #42b72a !important; color: white !important; font-weight: bold !important; height: 48px !important; border-radius: 8px !important; }</style>""", unsafe_allow_html=True)
-            st.markdown('<div class="signup-btn-area">', unsafe_allow_html=True)
+            st.markdown('<div class="green-btn">', unsafe_allow_html=True)
             if st.form_submit_button("ยืนยันการลงทะเบียน", use_container_width=True):
                 try:
                     supabase.table("users").insert({"fullname":name,"username":user,"phone":phone,"password":pw}).execute()
@@ -137,7 +150,7 @@ elif st.session_state.page == 'signup':
             st.markdown('</div>', unsafe_allow_html=True)
         if st.button("ย้อนกลับ", use_container_width=True): go_to('login')
 
-# 🎮 หน้าหลัก/เล่นเกม
+# 🎮 หน้าเล่นเกม
 elif st.session_state.page == 'game':
     u = st.session_state.user
     st.markdown(f"<h3 style='text-align: center; color: #003366;'>สวัสดีคุณ {u['fullname']} 👋</h3>", unsafe_allow_html=True)
@@ -150,8 +163,8 @@ elif st.session_state.page == 'game':
         for m in missions:
             is_done = m['id'] in done_ids
             st.markdown(f"""
-                <div style="background:white; padding:15px; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.05); border-left: 6px solid {'#42b72a' if is_done else '#1877f2'}; margin-bottom:12px;">
-                    <b style="color:#003366; font-size:18px;">{m['title']}</b><br>
+                <div class="mission-card" style="border-left: 6px solid {'#42b72a' if is_done else '#1877f2'};">
+                    <b style="color: #003366;">{m['title']}</b><br>
                     <small style="color:{'#42b72a' if is_done else '#1877f2'}; font-weight:bold;">
                         {'✅ ส่งแล้ว' if is_done else '🔵 รอดำเนินการ'}
                     </small>
@@ -161,9 +174,7 @@ elif st.session_state.page == 'game':
             if not is_done:
                 f = st.file_uploader(f"ส่งรูป: {m['title']}", type=['jpg','png'], key=f"f{m['id']}")
                 if f:
-                    # ปุ่มส่งงานสีเขียว
-                    st.markdown("""<style>.signup-btn-area div[data-testid="stButton"] > button { background-color: #42b72a !important; color: white !important; font-weight: bold !important; border-radius: 8px !important; }</style>""", unsafe_allow_html=True)
-                    st.markdown('<div class="signup-btn-area">', unsafe_allow_html=True)
+                    st.markdown('<div class="green-btn">', unsafe_allow_html=True)
                     if st.button(f"ยืนยันส่งภารกิจ {m['id']}", key=f"b{m['id']}", use_container_width=True):
                         with st.spinner("กำลังส่งรูป..."):
                             try:
@@ -187,8 +198,8 @@ elif st.session_state.page == 'forgot':
     with col:
         with st.form("forgot_form"):
             ut = st.text_input("ระบุ Username")
-            if st.form_submit_button("ค้นหารหัสผ่าน", use_container_width=True):
+            if st.form_submit_button("ค้นหา", use_container_width=True):
                 res = supabase.table("users").select("password").eq("username", ut).execute()
                 if res.data: st.success(f"🔑 รหัสคือ: {res.data[0]['password']}")
-                else: st.error("❌ ไม่พบข้อมูล")
+                else: st.error("ไม่พบข้อมูล")
         if st.button("กลับหน้าหลัก", use_container_width=True): go_to('login')
