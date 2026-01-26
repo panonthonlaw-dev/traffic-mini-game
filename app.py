@@ -22,17 +22,23 @@ if "m_id" in st.query_params:
     st.session_state.selected_mission = int(st.query_params["m_id"])
 
 # --- 4. การเชื่อมต่อระบบ (Supabase & Google Drive) ---
+# --- 4. การเชื่อมต่อระบบ (ฉบับปรับปรุง) ---
 try:
     supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+    
+    # ดึงข้อมูล GCP
     gcp_info = dict(st.secrets["gcp_service_account"])
     gcp_info["private_key"] = gcp_info["private_key"].replace("\\n", "\n").strip()
+    
+    # แนะนำให้ใช้สิทธิ์ 'drive' แบบเต็มถ้าส่งรูปเข้าโฟลเดอร์ที่สร้างมือไม่ได้
     creds = service_account.Credentials.from_service_account_info(
-        gcp_info, scopes=['https://www.googleapis.com/auth/drive.file']
+        gcp_info, scopes=['https://www.googleapis.com/auth/drive'] 
     )
     drive_service = build('drive', 'v3', credentials=creds)
     DRIVE_FOLDER_ID = st.secrets["general"]["DRIVE_FOLDER_ID"]
+    
 except Exception as e:
-    st.error("⚠️ ระบบเชื่อมต่อมีปัญหา กรุณาตรวจสอบรหัสเชื่อมต่อใน Secrets")
+    st.error(f"⚠️ ระบบเชื่อมต่อมีปัญหา: {e}") # พ่น Error จริงออกมาดูเลยครับพี่
     st.stop()
 
 # กู้คืน Session ผู้ใช้จาก URL
