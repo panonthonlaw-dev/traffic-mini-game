@@ -9,11 +9,10 @@ import re
 # --- 1. ตั้งค่าหน้าเว็บและการเปลี่ยนหน้าผ่านลิงก์ ---
 st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
 
-# ตรวจสอบลิงก์จาก URL (ถ้ามี ?page=... ให้เปลี่ยนหน้าตามนั้น)
 if "page" in st.query_params:
     st.session_state.page = st.query_params["page"]
 
-# --- 2. การเชื่อมต่อระบบ (คงเดิม) ---
+# --- 2. การเชื่อมต่อระบบ (ใช้ข้อมูลเดิมของพี่) ---
 try:
     supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     gcp_info = dict(st.secrets["gcp_service_account"])
@@ -27,12 +26,10 @@ except Exception as e:
     st.error(f"❌ ระบบเชื่อมต่อไม่ได้: {e}")
     st.stop()
 
-# --- 3. CSS ฉบับ Nuclear (เน้นคุมปุ่มฟ้า ปุ่มเขียว และ Input) ---
+# --- 3. CSS (คงเดิมตามมาตรฐานพี่) ---
 st.markdown("""
     <style>
         .stApp { background-color: #f8f9fa !important; }
-        
-        /* ช่องกรอกข้อมูล */
         div[data-testid="stTextInput"] > div {
             background-color: white !important;
             border: 1px solid #dcdfe3 !important;
@@ -40,15 +37,10 @@ st.markdown("""
         }
         input { color: #003366 !important; text-align: left !important; border: none !important; }
         label { color: #003366 !important; font-weight: bold !important; }
-        button[data-testid="stTextInputPasswordToggle"] { color: #1877f2 !important; }
-
-        /* 🔵 ปุ่มสีฟ้า (เข้าสู่ระบบ) */
         div[data-testid="stFormSubmitButton"] > button {
             background-color: #1877f2 !important; color: white !important;
             font-weight: bold !important; height: 50px !important; border-radius: 10px !important;
         }
-
-        /* 🟢 ปุ่มสีเขียว (ย้อนกลับ / สร้างบัญชี / ส่งงาน) */
         div.stButton > button[kind="secondary"] {
             background-color: #42b72a !important; color: white !important;
             font-weight: bold !important; height: 50px !important; border-radius: 10px !important;
@@ -61,7 +53,6 @@ if 'page' not in st.session_state: st.session_state.page = 'login'
 if 'user' not in st.session_state: st.session_state.user = None
 
 def go_to(page_name):
-    # ล้างค่าใน URL และเปลี่ยน State
     st.query_params.clear()
     st.session_state.page = page_name
     st.rerun()
@@ -86,24 +77,19 @@ if st.session_state.page == 'login':
                     else: go_to('game')
                 else: st.error("❌ ข้อมูลไม่ถูกต้อง")
         
-        # ✨ ลิงก์ HTML ของจริง (ไม่ใช้ปุ่ม)
-        st.markdown("""
-            <div style="text-align: center; margin-top: -10px; margin-bottom: 15px;">
-                <a href="./?page=forgot" target="_self" style="color: #1877f2; text-decoration: none; font-size: 14px;">คุณลืมรหัสผ่านใช่ไหม</a>
-            </div>
-        """, unsafe_allow_html=True)
-
+        st.markdown(f'<div style="text-align: center; margin-top: -10px; margin-bottom: 15px;"><a href="./?page=forgot" target="_self" style="color: #1877f2; text-decoration: none; font-size: 14px;">คุณลืมรหัสผ่านใช่ไหม</a></div>', unsafe_allow_html=True)
         st.write("---")
-        # ปุ่มสร้างบัญชี (ใช้ชนิด secondary เพื่อให้เป็นสีเขียว)
         if st.button("สร้างบัญชีใหม่", use_container_width=True, type="secondary"):
             go_to('signup')
 
-# 🟢 หน้าสมัครสมาชิก
+# 🟢 หน้าสมัครสมาชิก (ปรับปรุง Logic การแจ้งเตือน)
 elif st.session_state.page == 'signup':
     st.markdown("<h2 style='text-align: center; color: #003366;'>สมัครสมาชิก</h2>", unsafe_allow_html=True)
     _, col, _ = st.columns([1, 4, 1])
     with col:
-        with st.form("signup_form"):
+        placeholder = st.empty() # สร้างกล่องว่างไว้สำหรับแสดง Error แบบไม่ค้างหน้าจอ
+        
+        with st.form("signup_form", clear_on_submit=True):
             sid = st.text_input("รหัสนักเรียน (ตัวเลขเท่านั้น)")
             fullname = st.text_input("ชื่อ-นามสกุล (ภาษาไทย)")
             user = st.text_input("ชื่อผู้ใช้ (อังกฤษ/เลข 6-12 ตัว)")
@@ -112,18 +98,31 @@ elif st.session_state.page == 'signup':
             cpw = st.text_input("ยืนยันรหัสผ่าน", type="password")
             
             if st.form_submit_button("ยืนยันลงทะเบียน", use_container_width=True):
-                if sid.isdigit() and re.match(r'^[ก-ฮะ-์\s]+$', fullname) and pw == cpw:
+                # ตรวจสอบเบื้องต้น
+                if not sid.isdigit() or not re.match(r'^[ก-ฮะ-์\s]+$', fullname) or pw != cpw:
+                    placeholder.error("❌ ข้อมูลไม่ถูกต้อง หรือรหัสผ่านไม่ตรงกัน")
+                elif not re.match(r'^[a-zA-Z0-9]{6,12}$', user) or not re.match(r'^0[689][0-9]{8}$', phone):
+                    placeholder.error("❌ รูปแบบชื่อผู้ใช้หรือเบอร์โทรไม่ถูกต้อง")
+                else:
                     try:
-                        supabase.table("users").insert({"student_id": sid, "fullname": fullname, "username": user, "phone": phone, "password": pw, "role": "player"}).execute()
-                        st.success("✅ สำเร็จ!"); time.sleep(1.5); go_to('login')
-                    except: st.error("❌ ชื่อผู้ใช้นี้มีคนใช้แล้ว")
-                else: st.error("❌ ข้อมูลไม่ถูกต้องตามเงื่อนไข")
-        
-        # ✅ ปุ่มย้อนกลับ (ย้ายมาไว้นอก Form และเป็นสีเขียว)
+                        # พยายามส่งข้อมูล
+                        response = supabase.table("users").insert({
+                            "student_id": sid, "fullname": fullname, "username": user, 
+                            "phone": phone, "password": pw, "role": "player"
+                        }).execute()
+                        
+                        # ถ้าสำเร็จ ให้แสดงข้อความเดียวแล้วจบเลย
+                        st.success("✅ สมัครสมาชิกสำเร็จ! กำลังกลับหน้าหลัก...")
+                        time.sleep(1.5)
+                        go_to('login')
+                    except Exception as e:
+                        # ถ้าเกิด Error จริงๆ (เช่น Username ซ้ำ) ถึงจะเข้าตรงนี้
+                        placeholder.error("❌ ไม่สามารถสมัครได้: ชื่อผู้ใช้นี้อาจมีคนใช้แล้ว")
+
         if st.button("ย้อนกลับหน้าแรก", use_container_width=True, type="secondary"):
             go_to('login')
 
-# 🔑 หน้าลืมรหัสผ่าน (กู้คืนด้วย 3 ข้อมูลหลัก)
+# 🔑 หน้าลืมรหัสผ่าน
 elif st.session_state.page == 'forgot':
     st.markdown("<h2 style='text-align: center; color: #1877f2;'>กู้คืนรหัสผ่าน</h2>", unsafe_allow_html=True)
     _, col, _ = st.columns([1, 4, 1])
@@ -140,21 +139,19 @@ elif st.session_state.page == 'forgot':
                     supabase.table("users").update({"password": new_pw}).eq("username", u_check).execute()
                     st.success("✅ เปลี่ยนรหัสสำเร็จ!"); time.sleep(1.5); go_to('login')
                 else: st.error("❌ ข้อมูลยืนยันไม่ถูกต้อง")
-        
-        # ✅ ปุ่มยกเลิกสีเขียว
-        if st.button("ยกเลิกและย้อนกลับ", use_container_width=True, type="secondary"):
-            go_to('login')
+        if st.button("ยกเลิก", use_container_width=True, type="secondary"): go_to('login')
 
-# 🎮 หน้ากิจกรรม (สำหรับ Player)
+# 🎮 หน้ากิจกรรม (Player)
 elif st.session_state.page == 'game':
     st.markdown(f"<h3 style='text-align: center; color: #003366;'>กิจกรรมของคุณ {st.session_state.user['fullname']}</h3>", unsafe_allow_html=True)
     if st.button("ออกจากระบบ", use_container_width=True, type="secondary"):
         st.session_state.user = None
         go_to('login')
 
-# 🛠️ หน้าหลังบ้าน (สำหรับ Admin)
+# 🛠️ หน้าหลังบ้าน (Admin)
 elif st.session_state.page == 'admin_dashboard':
     st.markdown("<h2 style='text-align: center; color: #1877f2;'>ระบบจัดการหลังบ้าน (Admin)</h2>", unsafe_allow_html=True)
+    st.write(f"สวัสดีแอดมิน: {st.session_state.user['fullname']}")
     if st.button("ออกจากระบบ", use_container_width=True, type="secondary"):
         st.session_state.user = None
         go_to('login')
