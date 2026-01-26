@@ -163,78 +163,50 @@ elif st.session_state.page == 'game':
     if st.session_state.user is None: 
         go_to('login')
         
-    # 🛑 เพิ่มบรรทัดนี้ครับ เพื่อกำหนดว่า u คือข้อมูลของ user ที่ล็อกอินอยู่
     u = st.session_state.user 
 
     if st.session_state.selected_mission is None:
-        # --- 1. Logic ดึงคะแนน EXP และคำนวณ Rank ---
+        # --- 1. Logic ดึงคะแนน (ทำแค่รอบเดียวพอ) ---
         try:
             points_res = supabase.table("submissions").select("points").eq("user_username", u['username']).execute().data
             total_exp = sum(p['points'] for p in points_res if p.get('points'))
         except:
             total_exp = 0
 
-        # กำหนด Rank และคำนวณ Progress ตามช่วงที่พี่สั่ง
+        # --- 2. คำนวณ Rank ---
         if total_exp <= 100:
-            rank = "Beginner"
-            progress = total_exp / 100
+            rank, progress = "Beginner", total_exp / 100
         elif total_exp <= 300:
-            rank = "Pro"
-            progress = (total_exp - 100) / 200
+            rank, progress = "Pro", (total_exp - 100) / 200
         elif total_exp <= 600:
-            rank = "Expert"
-            progress = (total_exp - 300) / 300
+            rank, progress = "Expert", (total_exp - 300) / 300
         elif total_exp <= 999:
-            rank = "Guardian"
-            progress = (total_exp - 600) / 399
+            rank, progress = "Guardian", (total_exp - 600) / 399
         else:
-            rank = "Legendary"
-            progress = 1.0
+            rank, progress = "Legendary", 1.0
 
-        # --- 2. การแสดงผล Header: Rank (ซ้าย) | Username (ขวา) ---
-        col_title, col_user = st.columns([0.6, 0.4])
-        with col_title:
-            st.markdown(f"### 🏆 {rank}") # แสดงชื่อ Rank เช่น Beginner, Pro
-        with col_user:
+        # --- 3. แสดงผล Header (Rank ซ้าย | Username ขวา) ---
+        c_t, c_u = st.columns([0.6, 0.4])
+        with c_t:
+            st.markdown(f"### 🏆 {rank}")
+        with c_u:
             st.markdown(f"<p style='text-align: right; margin-top: 10px;'>👤 <b>{u['username']}</b></p>", unsafe_allow_html=True)
         
-        # --- 3. แสดงแถบ EXP ---
+        # --- 4. แสดงแถบ EXP และเส้นคั่น ---
         st.write(f"EXP รวม: {total_exp}")
-        st.progress(progress)
-        st.write("---")
-        try:
-            points_res = supabase.table("submissions").select("points").eq("user_username", u['username']).execute().data
-            total_exp = sum(p['points'] for p in points_res if p.get('points'))
-        except:
-            total_exp = 0
-
-        # ... โค้ดส่วนที่เหลือของพี่ ...
-
-        # สูตรเลเวล (ตัวอย่าง: 100 EXP = 1 Level)
-        level = (total_exp // 100) + 1
-        progress = (total_exp % 100) / 100
-
-        # --- 2. การแสดงผล Header: ชื่อภารกิจ (ซ้าย) | Username (ขวา) ---
-        col_title, col_user = st.columns([0.6, 0.4])
-        with col_title:
-            st.markdown(f"### 🏆 Level {level}")
-        with col_user:
-            # ใช้ inline style นิดเดียวเพื่อดันตัวหนังสือชิดขวาตามสั่งครับ
-            st.markdown(f"<p style='text-align: right; margin-top: 10px;'>👤 <b>{u['username']}</b></p>", unsafe_allow_html=True)
-        
-        # --- 3. แสดงแถบ EXP ---
-        st.write(f"EXP รวม: {total_exp}")
-        st.progress(progress)
+        st.progress(min(progress, 1.0))
         st.write("---")
 
-        # --- 4. รายการภารกิจ (โค้ดเดิมของพี่) ---
+        # --- 5. รายการภารกิจ (เริ่มดึงข้อมูลต่อจากนี้) ---
         missions = supabase.table("missions").select("*").eq("is_active", True).execute().data
         today = datetime.now().strftime("%Y-%m-%d")
         subs = supabase.table("submissions").select("*").eq("user_username", u['username']).gte("created_at", today).execute().data
         done_dict = {s['mission_id']: s for s in subs}
 
         for m in missions:
+            # (โค้ดแสดงปุ่มภารกิจของพี่ด้านล่างนี้...)
             m_sub = done_dict.get(m['id'])
+            # ... ก๊อปโค้ดส่วนแสดงผลปุ่มมาวางต่อได้เลยครับ ...
             is_done = m['id'] in done_dict
             c1, c2 = st.columns([0.75, 0.25])
             with c1:
