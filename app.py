@@ -160,13 +160,21 @@ elif st.session_state.page == 'forgot':
 
 # 🎮 หน้ากิจกรรม (Player)
 elif st.session_state.page == 'game':
+    if st.session_state.user is None: 
+        go_to('login')
+        
+    # 🛑 เพิ่มบรรทัดนี้ครับ เพื่อกำหนดว่า u คือข้อมูลของ user ที่ล็อกอินอยู่
+    u = st.session_state.user 
+
     if st.session_state.selected_mission is None:
-        # --- 1. Logic ดึงคะแนน EXP (เพิ่มแค่ตรงนี้) ---
+        # --- 1. Logic ดึงคะแนน EXP ---
         try:
             points_res = supabase.table("submissions").select("points").eq("user_username", u['username']).execute().data
             total_exp = sum(p['points'] for p in points_res if p.get('points'))
         except:
             total_exp = 0
+
+        # ... โค้ดส่วนที่เหลือของพี่ ...
 
         # สูตรเลเวล (ตัวอย่าง: 100 EXP = 1 Level)
         level = (total_exp // 100) + 1
