@@ -7,27 +7,25 @@ import time
 import re
 from datetime import datetime
 
-# --- 1. ตั้งค่าหน้าเว็บและการควบคุมหน้าจอผ่าน URL (Query Params) ---
+# --- 1. ตั้งค่าหน้าเว็บ ---
 st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
 
-# ดักจับการคลิก HTML Link และสถานะหน้าจอ
-if "page" in st.query_params:
-    st.session_state.page = st.query_params["page"]
+# --- 2. ประกาศตัวแปร Session State (ต้องวางไว้ตรงนี้เพื่อให้แอปจักจักตัวแปรทั้งหมดก่อน) ---
+if 'page' not in st.session_state: st.session_state.page = 'login'
+if 'user' not in st.session_state: st.session_state.user = None # <--- ต้องบรรทัดนี้ก่อน
+if 'selected_mission' not in st.session_state: st.session_state.selected_mission = None
 
-if "m_id" in st.query_params:
-    st.session_state.selected_mission = int(st.query_params["m_id"])
-
-# ✨ ระบบจดจำผู้ใช้: ถ้าหน้าเว็บรีเฟรช แต่ยังมี ?u=... อยู่บน URL ให้ล็อกอินคืนให้ทันที
+# --- 3. ระบบจดจำผู้ใช้จาก URL (ย้ายมาไว้ข้างล่างการประกาศตัวแปร) ---
 if "u" in st.query_params and st.session_state.user is None:
     u_url = st.query_params["u"]
     try:
-        # ดึงข้อมูลผู้ใช้จาก Supabase กลับมาใส่ใน Session State
         user_res = supabase.table("users").select("*").eq("username", u_url).execute()
         if user_res.data:
             st.session_state.user = user_res.data[0]
     except:
         pass
 
+# ... จากนั้นค่อยเป็นส่วนเชื่อมต่อ Supabase และ CSS ตามลำดับเดิมครับ ...
 # --- 2. การจัดการ Session State ---
 if 'page' not in st.session_state: st.session_state.page = 'login'
 if 'user' not in st.session_state: st.session_state.user = None
