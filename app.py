@@ -10,12 +10,18 @@ from datetime import datetime
 # --- 1. ตั้งค่าหน้าเว็บ ---
 st.set_page_config(page_title="Traffic Game", page_icon="🚦", layout="centered")
 
-# --- 2. ประกาศตัวแปร Session State (ต้องทำก่อนเรียกใช้งาน) ---
+# --- 2. ประกาศตัวแปร Session State (ต้องทำก่อนเพื่อกัน Error) ---
 if 'page' not in st.session_state: st.session_state.page = 'login'
 if 'user' not in st.session_state: st.session_state.user = None
 if 'selected_mission' not in st.session_state: st.session_state.selected_mission = None
 
-# --- 3. การเชื่อมต่อระบบ (ใช้ secrets ของพี่) ---
+# --- 3. ระบบจดจำสถานะผ่าน URL (กันเด้งตอนรีเฟรช) ---
+if "page" in st.query_params:
+    st.session_state.page = st.query_params["page"]
+if "m_id" in st.query_params:
+    st.session_state.selected_mission = int(st.query_params["m_id"])
+
+# --- 4. การเชื่อมต่อระบบ (Supabase & Google Drive) ---
 try:
     supabase = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
     gcp_info = dict(st.secrets["gcp_service_account"])
@@ -29,13 +35,7 @@ except Exception as e:
     st.error("⚠️ ระบบเชื่อมต่อมีปัญหา กรุณาตรวจสอบรหัสเชื่อมต่อใน Secrets")
     st.stop()
 
-# --- 4. ระบบจดจำสถานะผ่าน URL (ดักจับ u, page, m_id) ---
-if "page" in st.query_params:
-    st.session_state.page = st.query_params["page"]
-if "m_id" in st.query_params:
-    st.session_state.selected_mission = int(st.query_params["m_id"])
-
-# กู้คืน Session ผู้ใช้จาก URL (กันเด้งตอนรีเฟรช)
+# กู้คืน Session ผู้ใช้จาก URL
 if "u" in st.query_params and st.session_state.user is None:
     u_url = st.query_params["u"]
     try:
@@ -45,7 +45,7 @@ if "u" in st.query_params and st.session_state.user is None:
     except:
         pass
 
-# --- 5. CSS ปรับแต่งหน้าตา (รวมปุ่มขอบบาง Minimal ที่พี่สั่ง) ---
+# --- 5. CSS ปรับแต่งหน้าตา (จัดปุ่มเขียวจิ๋วและสถานะ) ---
 st.markdown("""
     <style>
         .stApp { background-color: #f8f9fa !important; }
@@ -68,33 +68,37 @@ st.markdown("""
         }
 
         /* 🔗 ลิงก์ HTML */
-        .html-link {
-            color: #1877f2 !important;
-            text-decoration: underline !important;
-            font-size: 15px;
-            cursor: pointer;
-        }
+        .html-link { color: #1877f2 !important; text-decoration: underline !important; font-size: 15px; cursor: pointer; }
 
-        /* 🎨 🛑 ปุ่มขอบบางพอดีตัวอักษร (ตามที่พี่สั่ง) */
-        .thin-btn div.stButton > button {
+        /* 🎨 🛑 ปุ่มจิ๋วขอบเขียวบาง (ตามที่พี่สั่ง) */
+        .thin-btn-green div.stButton > button {
             background-color: transparent !important;
-            color: #1877f2 !important;
-            border: 1px solid #1877f2 !important;
-            padding: 2px 8px !important;
-            height: auto !important;
+            color: #42b72a !important;
+            border: 1px solid #42b72a !important;
+            padding: 0px 8px !important;
+            height: 30px !important;
             min-height: unset !important;
-            font-size: 16px !important;
+            font-size: 13px !important;
             border-radius: 5px !important;
             font-weight: normal !important;
+            width: auto !important;
         }
-        .thin-btn div.stButton > button:hover {
-            background-color: #1877f2 !important;
+        .thin-btn-green div.stButton > button:hover {
+            background-color: #42b72a !important;
             color: white !important;
+        }
+
+        /* สไตล์ตัวหนังสือสถานะชิดขวา */
+        .status-right {
+            font-size: 13px !important;
+            line-height: 30px; /* ให้สูงเท่าปุ่มพอดี */
+            text-align: right;
+            font-weight: bold;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# ฟังก์ชันเปลี่ยนหน้า (รักษา Username ไว้บน URL)
+# ฟังก์ชันเปลี่ยนหน้า
 def go_to(page_name):
     current_u = st.query_params.get("u")
     st.query_params.clear()
@@ -104,13 +108,12 @@ def go_to(page_name):
     st.session_state.selected_mission = None
     st.rerun()
 
-# --- 6. การแสดงผลหน้าจอ (Logic) ---
+# --- 6. การแสดงผลหน้าจอ ---
 
 # 🔵 หน้า LOGIN
 if st.session_state.page == 'login':
     st.markdown("<h1 style='text-align: center; color:#1877f2; margin-bottom:0;'>traffic game</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #003366; font-weight: bold;'>เล่นเปลี่ยนรอด</p>", unsafe_allow_html=True)
-    
     _, col, _ = st.columns([1, 4, 1])
     with col:
         with st.form("login_form"):
@@ -120,62 +123,52 @@ if st.session_state.page == 'login':
                 res = supabase.table("users").select("*").eq("username", u_input).execute()
                 if res.data and res.data[0]['password'] == p_input:
                     st.session_state.user = res.data[0]
-                    st.query_params["u"] = u_input # จำ User ไว้บน URL กันเด้ง
+                    st.query_params["u"] = u_input 
                     if st.session_state.user.get('role') == 'admin': go_to('admin_dashboard')
                     else: go_to('game')
                 else: st.error("❌ ข้อมูลไม่ถูกต้อง")
         
-        st.markdown('<div style="text-align: center; margin-top: -10px; margin-bottom: 15px;">', unsafe_allow_html=True)
-        st.markdown('<a href="./?page=forgot" target="_self" class="html-link">คุณลืมรหัสผ่านใช่ไหม</a>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
+        st.markdown('<div style="text-align: center; margin-top: -10px;"><a href="./?page=forgot" target="_self" class="html-link">คุณลืมรหัสผ่านใช่ไหม</a></div>', unsafe_allow_html=True)
         st.write("---")
-        if st.button("สร้างบัญชีใหม่", use_container_width=True, type="secondary"):
-            go_to('signup')
+        if st.button("สร้างบัญชีใหม่", use_container_width=True, type="secondary"): go_to('signup')
 
-# 🟢 หน้าสมัครสมาชิก (กู้คืนมาให้แล้วครับ!)
+# 🟢 หน้าสมัครสมาชิก
 elif st.session_state.page == 'signup':
-    st.markdown("<h2 style='text-align: center; color: #003366;'>สร้างบัญชีใหม่</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>สมัครสมาชิก</h2>", unsafe_allow_html=True)
     _, col, _ = st.columns([1, 4, 1])
     with col:
         with st.form("signup_form"):
             sid = st.text_input("รหัสนักเรียน (ตัวเลข)")
-            fullname = st.text_input("ชื่อ-นามสกุล (ภาษาไทย)")
+            fname = st.text_input("ชื่อ-นามสกุล")
             uname = st.text_input("Username")
             phone = st.text_input("เบอร์โทรศัพท์")
             pw = st.text_input("รหัสผ่าน", type="password")
             cpw = st.text_input("ยืนยันรหัสผ่าน", type="password")
             if st.form_submit_button("ยืนยันลงทะเบียน", use_container_width=True):
-                if pw == cpw and sid.isdigit() and uname:
+                if pw == cpw and sid.isdigit():
                     try:
-                        supabase.table("users").insert({
-                            "student_id": sid, "fullname": fullname, "username": uname, 
-                            "phone": phone, "password": pw, "role": "player"
-                        }).execute()
-                        st.success("✅ ลงทะเบียนสำเร็จ!"); time.sleep(1); go_to('login')
-                    except: st.error("❌ Username นี้มีผู้ใช้งานแล้ว")
-                else: st.error("❌ ข้อมูลไม่ถูกต้องหรือรหัสผ่านไม่ตรงกัน")
-        if st.button("ย้อนกลับ", use_container_width=True, type="secondary"):
-            go_to('login')
+                        supabase.table("users").insert({"student_id": sid, "fullname": fname, "username": uname, "phone": phone, "password": pw, "role": "player"}).execute()
+                        st.success("✅ สำเร็จ!"); time.sleep(1); go_to('login')
+                    except: st.error("❌ Username นี้มีคนใช้แล้ว")
+        if st.button("ย้อนกลับ", use_container_width=True, type="secondary"): go_to('login')
 
-# 🔑 หน้าลืมรหัสผ่าน (กู้คืนมาให้แล้วครับ!)
+# 🔑 หน้าลืมรหัสผ่าน
 elif st.session_state.page == 'forgot':
-    st.markdown("<h2 style='text-align: center; color: #1877f2;'>กู้คืนรหัสผ่าน</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>กู้คืนรหัสผ่าน</h2>", unsafe_allow_html=True)
     _, col, _ = st.columns([1, 4, 1])
     with col:
         with st.form("forgot_form"):
-            f_u = st.text_input("Username ที่ต้องการกู้คืน")
-            f_s = st.text_input("รหัสนักเรียน")
-            f_p = st.text_input("เบอร์โทรศัพท์")
-            f_np = st.text_input("ตั้งรหัสผ่านใหม่", type="password")
-            if st.form_submit_button("อัปเดตรหัสผ่าน", use_container_width=True):
-                res = supabase.table("users").select("*").eq("username", f_u).eq("student_id", f_s).eq("phone", f_p).execute()
+            fu = st.text_input("Username")
+            fs = st.text_input("รหัสนักเรียน")
+            fp = st.text_input("เบอร์โทรศัพท์")
+            np = st.text_input("รหัสผ่านใหม่", type="password")
+            if st.form_submit_button("อัปเดตรหัสผ่าน"):
+                res = supabase.table("users").select("*").eq("username", fu).eq("student_id", fs).eq("phone", fp).execute()
                 if res.data:
-                    supabase.table("users").update({"password": f_np}).eq("username", f_u).execute()
-                    st.success("✅ อัปเดตรหัสผ่านสำเร็จ!"); time.sleep(1); go_to('login')
-                else: st.error("❌ ข้อมูลยืนยันตัวตนไม่ถูกต้อง")
-        if st.button("ยกเลิกและย้อนกลับ", use_container_width=True, type="secondary"):
-            go_to('login')
+                    supabase.table("users").update({"password": np}).eq("username", fu).execute()
+                    st.success("✅ สำเร็จ!"); time.sleep(1); go_to('login')
+                else: st.error("❌ ข้อมูลไม่ถูกต้อง")
+        if st.button("ยกเลิก", use_container_width=True, type="secondary"): go_to('login')
 
 # 🎮 หน้ากิจกรรม (Player)
 elif st.session_state.page == 'game':
@@ -192,47 +185,40 @@ elif st.session_state.page == 'game':
 
         for m in missions:
             is_done = m['id'] in done_ids
-            status = '<span style="color:#42b72a;"> (✅ ส่งแล้ว)</span>' if is_done else '<span style="color:#888;"> (⭕ รอดำเนินการ)</span>'
-            
-            # ✨ 🛑 ปุ่มภารกิจขอบบาง (ตามที่พี่สั่ง) แก้ปัญหาการเด้งไปหน้า login
-            st.markdown('<div class="thin-btn">', unsafe_allow_html=True)
-            if st.button(f"📍 {m['title']}", key=f"m_btn_{m['id']}"):
-                st.session_state.selected_mission = m['id']
-                st.query_params["m_id"] = m['id'] # แปะ ID ด่านไว้บน URL
-                st.rerun()
-            st.markdown(f'{status}</div>', unsafe_allow_html=True)
+            # 🏁 แบ่งคอลัมน์: ซ้าย 75% (ปุ่มจิ๋ว) | ขวา 25% (สถานะ)
+            c1, c2 = st.columns([0.75, 0.25])
+            with c1:
+                st.markdown('<div class="thin-btn-green">', unsafe_allow_html=True)
+                if st.button(f"📍 {m['title']}", key=f"m_btn_{m['id']}"):
+                    st.session_state.selected_mission = m['id']
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+            with c2:
+                status_color = "#42b72a" if is_done else "#888"
+                status_text = "✅ ส่งแล้ว" if is_done else "⭕ รอยืนยัน"
+                st.markdown(f'<div class="status-right" style="color:{status_color};">{status_text}</div>', unsafe_allow_html=True)
             
     else:
-        # --- หน้าทำภารกิจรายด่าน ---
+        # หน้าทำภารกิจ
         m_id = st.session_state.selected_mission
         m_data = supabase.table("missions").select("*").eq("id", m_id).single().execute().data
         st.markdown(f"<h2>{m_data['title']}</h2>", unsafe_allow_html=True)
         
-        # ปุ่มย้อนกลับแบบขอบบาง
-        st.markdown('<div class="thin-btn">', unsafe_allow_html=True)
-        if st.button("⬅️ กลับไปหน้ารายชื่อกิจกรรม", key="back_to_list"):
-            st.session_state.selected_mission = None
-            if "m_id" in st.query_params: del st.query_params["m_id"]
-            st.rerun()
+        st.markdown('<div class="thin-btn-green">', unsafe_allow_html=True)
+        if st.button("⬅️ ย้อนกลับ", key="back"): st.session_state.selected_mission = None; st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
         
-        st.info(f"💡 **วิธีทำ:** {m_data.get('description', 'ส่งรูปถ่ายกิจกรรมของคุณ')}")
-        
-        today = datetime.now().strftime("%Y-%m-%d")
-        sub_check = supabase.table("submissions").select("*").eq("user_username", u['username']).eq("mission_id", m_id).gte("created_at", today).execute().data
-        
-        if sub_check:
-            st.success("✅ วันนี้ส่งกิจกรรมนี้เรียบร้อยแล้ว!")
-        else:
-            f = st.file_uploader("📸 แนบรูปถ่ายกิจกรรม", type=['jpg','png','jpeg'])
-            if f and st.button("ยืนยันส่งงาน", type="secondary", use_container_width=True):
-                with st.spinner("กำลังอัปโหลด..."):
-                    filename = f"{u['student_id']}_m{m_id}_{today}.jpg"
-                    meta = {'name': filename, 'parents': [DRIVE_FOLDER_ID]}
-                    media = MediaIoBaseUpload(f, mimetype=f.type, resumable=True)
-                    drive_service.files().create(body=meta, media_body=media).execute()
-                    supabase.table("submissions").insert({"user_username": u['username'], "mission_id": m_id}).execute()
-                    st.success("🎉 ส่งงานสำเร็จ!"); time.sleep(1); st.session_state.selected_mission = None; st.rerun()
+        st.info(f"💡 วิธีทำ: {m_data.get('description', 'ส่งรูปถ่ายกิจกรรม')}")
+        f = st.file_uploader("📸 แนบรูปถ่าย", type=['jpg','png','jpeg'])
+        if f and st.button("ยืนยันส่งงาน", type="secondary", use_container_width=True):
+            with st.spinner("กำลังอัปโหลด..."):
+                today = datetime.now().strftime("%Y-%m-%d")
+                filename = f"{u['student_id']}_m{m_id}_{today}.jpg"
+                meta = {'name': filename, 'parents': [DRIVE_FOLDER_ID]}
+                media = MediaIoBaseUpload(f, mimetype=f.type, resumable=True)
+                drive_service.files().create(body=meta, media_body=media).execute()
+                supabase.table("submissions").insert({"user_username": u['username'], "mission_id": m_id}).execute()
+                st.success("🎉 สำเร็จ!"); time.sleep(1); st.session_state.selected_mission = None; st.rerun()
 
     st.write("---")
     if st.button("ออกจากระบบ", use_container_width=True): 
@@ -240,7 +226,7 @@ elif st.session_state.page == 'game':
         st.query_params.clear()
         go_to('login')
 
-# 🛠️ หน้าหลังบ้าน (Admin)
+# 🛠️ หน้า Admin Dashboard
 elif st.session_state.page == 'admin_dashboard':
     if st.session_state.user is None or st.session_state.user['role'] != 'admin': go_to('login')
     st.markdown("<h2>ระบบจัดการหลังบ้าน (Admin)</h2>", unsafe_allow_html=True)
