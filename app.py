@@ -247,52 +247,35 @@ elif st.session_state.page == 'game':
         
         # 🛑 เพิ่มปุ่ม "ส่งภารกิจ" 
         # 🛑 ส่วนส่งภารกิจแบบดักจับ Error ละเอียด
+       # 🛑 ส่วนส่งภารกิจ (ฉบับกันเด้ง)
         if f:
-            if st.button("🚀 ส่งภารกิจ", type="secondary", use_container_width=True):
-                with st.spinner("กำลังอัปโหลดรูปภาพ..."):
+            if st.button("🚀 ยืนยันส่งภารกิจ", type="primary", use_container_width=True):
+                with st.spinner("กำลังอัปโหลด..."):
                     try:
-                        # 1. เตรียมข้อมูลชื่อไฟล์และโฟลเดอร์
+                        # 1. อัปโหลดเข้า Drive
                         today = datetime.now().strftime("%Y-%m-%d")
                         filename = f"{u['student_id']}_m{m_id}_{today}.jpg"
-                        meta = {
-                            'name': filename, 
-                            'parents': [DRIVE_FOLDER_ID]
-                        }
-                        
-                        # 2. จัดการไฟล์รูป (ใช้ io.BytesIO เพื่อความชัวร์)
-                        import io
-                        media = MediaIoBaseUpload(
-                            io.BytesIO(f.getvalue()), 
-                            mimetype=f.type, 
-                            resumable=True
-                        )
-                        
-                        # 3. สั่งอัปโหลดเข้า Google Drive (เพิ่ม supportsAllDrives กันเหนียว)
-                        uploaded_file = drive_service.files().create(
-                            body=meta, 
-                            media_body=media,
-                            fields='id',
-                            supportsAllDrives=True
-                        ).execute()
+                        meta = {'name': filename, 'parents': [DRIVE_FOLDER_ID]}
+                        media = MediaIoBaseUpload(io.BytesIO(f.getvalue()), mimetype=f.type, resumable=True)
+                        drive_service.files().create(body=meta, media_body=media).execute()
 
-                        # 4. บันทึกข้อมูลลง Supabase (เฉพาะเมื่ออัปโหลดรูปผ่านแล้ว)
+                        # 2. บันทึกลง Supabase
                         supabase.table("submissions").insert({
                             "user_username": u['username'], 
                             "mission_id": m_id,
-                            "status": "pending", # รอตรวจ
-                            "points": 0         # เริ่มต้นที่ 0
+                            "status": "pending",
+                            "points": 0
                         }).execute()
 
-                        st.success("🎉 ส่งภารกิจสำเร็จ! คะแนนจะขึ้นหลังจากแอดมินตรวจงานครับ")
-                        time.sleep(2)
+                        st.success("🎉 ส่งภารกิจสำเร็จ!")
+                        time.sleep(1.5)
+                        
+                        # ย้ำอีกรอบว่าห้ามลบ user ออกตอนเปลี่ยนหน้า
                         st.session_state.selected_mission = None
                         st.rerun()
 
                     except Exception as e:
-                        # 🚨 ตรงนี้แหละครับพี่ ที่มันจะพ่น "สาเหตุจริง" ออกมา
-                        st.error("🚨 ระบบอัปโหลดขัดข้อง!")
-                        st.code(str(e)) # ก๊อปปี้ข้อความภาษาอังกฤษในกล่องนี้มาบอกผมนะพี่
-                        st.stop()
+                        st.error(f"🚨 เกิดข้อผิดพลาด: {e}")
     st.write("---")
     if st.button("ออกจากระบบ", use_container_width=True): 
         st.session_state.user = None
