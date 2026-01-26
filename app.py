@@ -311,14 +311,13 @@ elif st.session_state.page == 'game':
                     except Exception as e:
                         st.error(f"🚨 ระบบส่งงานขัดข้อง: {e}")
     st.write("---")
-    if st.button("🚪 ออกจากระบบ"):
-    # 1. ล้างค่าใน Session
-    st.session_state.user = None
-    # 2. ล้างค่าใน URL (ลบ ?u=...) 🛑 สำคัญมาก
-    st.query_params.clear() 
-    # 3. กลับหน้าแรก
-    st.session_state.page = 'login'
-    st.rerun()
+    if st.button("🚪 ออกจากระบบ", use_container_width=True):
+        # 👇 บรรทัดพวกนี้ต้อง "เยื้อง" เข้ามาให้ตรงกันแบบนี้ครับ
+        st.session_state.user = None
+        # ล้างชื่อผู้ใช้ใน URL ทิ้งเพื่อให้ Refresh แล้วไม่ Login กลับมาเอง
+        st.query_params.clear() 
+        st.session_state.page = 'login'
+        st.rerun()
 
 elif st.session_state.page == 'admin_dashboard':
     # --- 1. ระบบความปลอดภัย (Security) ---
