@@ -527,154 +527,56 @@ elif st.session_state.page == 'admin_dashboard':
         st.query_params.clear()
         go_to('login')# =========================================================
 # =========================================================
-# 🎮 หน้า BONUS GAME: ระบบ Leaderboard (Version แก้ไขระบบบันทึก 100%)
+# 🎮 หน้า BONUS GAME: เกมเปิดป้ายผู้โชคดี (Native Streamlit)
 # =========================================================
 elif st.session_state.page == 'bonus_game':
     u = st.session_state.user
-    
-    st.markdown("<h2 style='text-align: center; color:#1877f2;'>🏆 Moto Leaderboard</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>🪖 เกมเปิดป้ายล่าแต้ม EXP</h2>", unsafe_allow_html=True)
+    st.write("กติกา: เลือกเปิดป้ายได้ 3 ใบ เพื่อลุ้นรับ EXP พิเศษ!")
 
-    # --- 🆕 1. ส่วนประมวลผลการบันทึกคะแนน (Streamlit Direct Save) ---
-    # ดักรับค่า score จาก URL
-    score_to_save = st.query_params.get("score")
-    
-    if score_to_save:
-        final_score = int(score_to_save)
-        
-        st.markdown(f"""
-            <div style='background: #e1f5fe; padding: 20px; border-radius: 15px; border: 2px solid #0288d1; text-align: center; margin-bottom: 20px;'>
-                <h3 style='margin:0; color:#01579b;'>🏁 เล่นจบแล้ว! ทำได้ {final_score} แต้ม</h3>
-                <p style='margin:5px 0;'>กดปุ่มด้านล่างเพื่อบันทึกคะแนนลงตารางอันดับ</p>
-            </div>
-        """, unsafe_allow_html=True)
+    # --- 1. เตรียมข้อมูลเกม (จัดเก็บใน Session State เพื่อให้ค่าไม่หายเวลาคลิก) ---
+    if 'tiles' not in st.session_state:
+        # สุ่มรางวัลซ่อนไว้หลังป้าย 9 ใบ
+        rewards = [10, 20, 5, 100, 10, 5, 50, 5, 20] # แต้ม EXP ต่างๆ
+        random.shuffle(rewards)
+        st.session_state.tiles = rewards
+        st.session_state.opened = [] # เก็บว่าเปิดใบไหนไปแล้วบ้าง
+        st.session_state.total_win = 0
 
-        if st.button(f"🚀 ยืนยันบันทึกคะแนน {final_score} แต้ม", type="primary", use_container_width=True):
-            try:
-                # บันทึกตรงๆ ผ่าน Python (วิธีนี้ชัวร์ที่สุด)
-                supabase.table("leaderboard").insert({
-                    "username": u['username'],
-                    "score": final_score
-                }).execute()
-                
-                # ล้างค่า URL เพื่อไม่ให้บันทึกซ้ำ
-                st.query_params.clear()
-                st.query_params["u"] = u['username']
-                st.query_params["page"] = "bonus_game"
-                
-                st.balloons()
-                st.success("บันทึกคะแนนสำเร็จ!")
-                time.sleep(1.5)
-                st.rerun()
-            except Exception as e:
-                st.error(f"บันทึกไม่ได้: {e}")
-        
-        if st.button("🔄 ไม่บันทึก (เล่นใหม่)", use_container_width=True):
-            st.query_params.clear()
-            st.query_params["u"] = u['username']
-            st.query_params["page"] = "bonus_game"
+    # --- 2. แสดงผลตารางป้าย 3x3 ---
+    cols = st.columns(3)
+    for i in range(9):
+        with cols[i % 3]:
+            # ถ้าป้ายนี้ถูกเปิดไปแล้ว
+            if i in st.session_state.opened:
+                st.button(f"💰 {st.session_state.tiles[i]} EXP", key=f"tile_{i}", disabled=True, use_container_width=True)
+            else:
+                # ถ้ายังไม่ได้เปิด และยังเปิดไม่ครบ 3 ใบ
+                if len(st.session_state.opened) < 3:
+                    if st.button("❓", key=f"tile_{i}", use_container_width=True):
+                        # --- จังหวะบันทึกคะแนน (ตรงนี้แหละครับที่ชัวร์ 100%) ---
+                        win_amount = st.session_state.tiles[i]
+                        st.session_state.opened.append(i)
+                        st.session_state.total_win += win_amount
+                        
+                        # บันทึกคะแนนลง Supabase ทันทีที่กด!
+                        new_exp = (u.get('total_exp', 0)) + win_amount
+                        supabase.table("users").update({"total_exp": new_exp}).eq("username", u['username']).execute()
+                        st.session_state.user['total_exp'] = new_exp
+                        
+                        st.toast(f"ยินดีด้วย! ได้รับ {win_amount} EXP", icon="🎉")
+                        st.rerun()
+                else:
+                    st.button("🔒", key=f"tile_{i}", disabled=True, use_container_width=True)
+
+    # --- 3. สรุปผล ---
+    if len(st.session_state.opened) >= 3:
+        st.success(f"🎊 คุณเปิดครบ 3 ใบแล้ว! รับ EXP รวมทั้งหมด: {st.session_state.total_win}")
+        if st.button("🔄 เล่นใหม่อีกครั้ง (ใช้สิทธิ์เล่นต่อ)", use_container_width=True):
+            del st.session_state.tiles
             st.rerun()
 
-    st.write("---")
-
-    # --- 📊 2. แสดงตารางอันดับ Top 10 ---
-    with st.expander("🥇 ตารางอันดับคะแนนสูงสุด", expanded=True):
-        try:
-            lb_res = supabase.table("leaderboard")\
-                .select("username, score")\
-                .order("score", desc=True)\
-                .limit(10).execute()
-            
-            if lb_res.data:
-                df_lb = pd.DataFrame(lb_res.data)
-                df_lb.columns = ['นักบิด', 'คะแนน']
-                df_lb.index = df_lb.index + 1
-                st.table(df_lb)
-            else:
-                st.info("ยังไม่มีคะแนนบันทึกในสัปดาห์นี้")
-        except:
-            st.warning("ไม่สามารถดึงข้อมูลตารางอันดับได้")
-
-    # --- 🏍️ 3. ตัวเกมแนวตั้ง (เล่นได้ไม่จำกัด) ---
-    # ผมแก้ JS ให้สั่งเปลี่ยน URL แบบนุ่มนวลขึ้นเพื่อให้ Python จับค่าได้
-    game_html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-        <style>
-            body {{ margin: 0; display: flex; flex-direction: column; align-items: center; background: transparent; touch-action: none; font-family: sans-serif; }}
-            #game-container {{ position: relative; width: 300px; height: 400px; background: #333; border: 3px solid #1877f2; border-radius: 15px; overflow: hidden; }}
-            canvas {{ display: block; width: 100%; height: 100%; }}
-            #ui {{ position: absolute; top: 10px; left: 10px; color: white; font-size: 20px; font-weight: bold; text-shadow: 2px 2px black; }}
-            #msg {{ display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 15px; text-align: center; border: 3px solid #1877f2; width: 70%; z-index: 100; box-shadow: 0 0 20px rgba(0,0,0,0.5); }}
-        </style>
-    </head>
-    <body>
-        <div id="game-container">
-            <div id="ui">0</div>
-            <canvas id="gameCanvas" width="300" height="400"></canvas>
-            <div id="msg">
-                <h2 style="color:#d9534f; margin:0;">🏁 เกมจบ!</h2>
-                <p style="margin:10px 0;">กำลังโหลดปุ่มบันทึกคะแนน...</p>
-            </div>
-        </div>
-        <script>
-            const canvas = document.getElementById('gameCanvas');
-            const ctx = canvas.getContext('2d');
-            let score = 0, isGameOver = false, frame = 0, speed = 4;
-            const lanes = [50, 150, 250];
-            let currentLane = 1, items = [];
-
-            function animate() {{
-                if (isGameOver) return;
-                ctx.clearRect(0, 0, 300, 400);
-                frame++; score += 0.2; speed += 0.002;
-                ctx.font = "40px Arial"; ctx.textAlign = "center";
-                ctx.fillText("🏍️", lanes[currentLane], 340);
-                if (frame % Math.floor(90 - speed*2) === 0) {{
-                    let t = Math.random() > 0.8 ? '🪖' : '🕳️';
-                    items.push({{ x: lanes[Math.floor(Math.random()*3)], y: -50, t: t }});
-                }}
-                items.forEach((it, i) => {{
-                    it.y += speed; ctx.font = "35px Arial"; ctx.fillText(it.t, it.x, it.y);
-                    if (lanes.indexOf(it.x) === currentLane && it.y > 310 && it.y < 350) {{
-                        if (it.t === '🕳️') {{ isGameOver = true; finish(); }}
-                        else {{ score += 100; items.splice(i, 1); }}
-                    }}
-                    if (it.y > 450) items.splice(i, 1);
-                }});
-                document.getElementById('ui').innerHTML = Math.floor(score);
-                if (!isGameOver) requestAnimationFrame(animate);
-            }}
-
-            function finish() {{
-                document.getElementById('msg').style.display = 'block';
-                const finalS = Math.floor(score);
-                setTimeout(() => {{
-                    const url = new URL(window.top.location.href);
-                    url.searchParams.set('score', finalS);
-                    window.top.location.href = url.href;
-                }}, 1000);
-            }}
-
-            function move(d) {{ if (d === 'L' && currentLane > 0) currentLane--; if (d === 'R' && currentLane < 2) currentLane++; }}
-            window.addEventListener('keydown', e => {{ if (e.key === 'ArrowLeft') move('L'); if (e.key === 'ArrowRight') move('R'); }});
-            let sx = 0;
-            window.addEventListener('touchstart', e => sx = e.touches[0].clientX);
-            window.addEventListener('touchend', e => {{
-                let dx = e.changedTouches[0].clientX - sx;
-                if (dx < -30) move('L'); if (dx > 30) move('R');
-            }});
-            animate();
-        </script>
-    </body>
-    </html>
-    """
-    import streamlit.components.v1 as components
-    components.html(game_html, height=420)
-
-    if st.button("⬅️ กลับหน้าหลัก", use_container_width=True):
+    if st.button("⬅️ กลับหน้าหลัก"):
         st.session_state.page = 'game'
         st.rerun()
 # 👗 หน้าแต่งตัว (Dressing Room) - วางล่างสุดของไฟล์
