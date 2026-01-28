@@ -242,9 +242,21 @@ elif st.session_state.page == 'game':
         st.write(f"EXP รวม: {total_exp}")
         st.progress(min(progress, 1.0))
         st.write("---")
-        if st.button("🎮 เล่นมินิเกมแก้เครียด"):
-           st.session_state.page = 'bonus_game'
-           st.rerun()
+
+        # สร้าง 2 คอลัมน์เพื่อให้ปุ่มวางคู่กันครับ
+        col_play, col_dress = st.columns(2)
+
+        with col_play:
+            if st.button("🎮 เล่นมินิเกม", use_container_width=True):
+                st.session_state.page = 'bonus_game'
+                st.rerun()
+
+        with col_dress:
+            if st.button("👕 แต่งตัวละคร", use_container_width=True):
+                st.session_state.page = 'dressing_room'
+                st.rerun()
+
+        st.write("---")
 
         # --- 5. รายการภารกิจ (เริ่มดึงข้อมูลต่อจากนี้) ---
         missions = supabase.table("missions").select("*").eq("is_active", True).execute().data
@@ -655,3 +667,84 @@ elif st.session_state.page == 'bonus_game':
             else:
                 st.session_state.page = 'game'
             st.rerun()
+# =========================================================
+# 👗 หน้าแต่งตัว (Dressing Room) - วางล่างสุดของไฟล์
+# =========================================================
+elif st.session_state.page == 'dressing_room':
+    st.markdown("<h2 style='text-align: center; color: #1877f2;'>👕 ห้องแต่งตัวนักบิด</h2>", unsafe_allow_html=True)
+    
+    # ดึงข้อมูลผู้ใช้ล่าสุดจาก session
+    user_exp = st.session_state.user.get('total_exp', 0)
+    level = (user_exp // 500) + 1
+    
+    st.markdown(f"""
+        <div style='text-align: center; background: #e1f5fe; padding: 10px; border-radius: 10px; margin-bottom: 20px;'>
+            <h4 style='margin:0; color: #01579b;'>Level {level}</h4>
+            <p style='margin:0;'>สะสมได้ {user_exp} EXP</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # --- 🎒 ระบบปลดล็อกไอเทมตาม Level ---
+    colors = {"🔴 แดง (Basic)": "#FF4B4B", "⚫ ดำ (Basic)": "#31333F"}
+    if level >= 2: colors["🟢 เขียว (Pro)"] = "#28A745"
+    if level >= 3: colors["🔵 น้ำเงิน (Pro)"] = "#007BFF"
+    if level >= 5: colors["🟡 ทอง (Legend)"] = "#FFD700"
+
+    types = {"หมวกครึ่งใบ": "half"}
+    if level >= 4: types["หมวกเต็มใบ (High Tech)"] = "full"
+
+    # --- 🎨 ส่วนแสดงผลและการเลือก ---
+    col_preview, col_control = st.columns([0.5, 0.5])
+    
+    with col_control:
+        st.subheader("เลือกสไตล์ของคุณ")
+        sel_color_name = st.selectbox("เลือกสีหมวก", list(colors.keys()))
+        sel_type_name = st.selectbox("เลือกทรงหมวก", list(types.keys()))
+        
+        current_color = colors[sel_color_name]
+        current_type = types[sel_type_name]
+
+    with col_preview:
+        # ระบบวาดตัวละครด้วย CSS (Responsive)
+        h_style = "border-radius: 50% 50% 20% 20%; height: 50px;" if current_type == 'full' else "border-radius: 50% 50% 0 0; height: 35px;"
+        
+        st.markdown(f"""
+            <div style="background: #ffffff; padding: 20px; border-radius: 15px; text-align: center; border: 2px dashed #ccc;">
+                <div style="position: relative; display: inline-block; font-size: 70px; margin-top: 10px;">
+                    👤
+                    <div style="
+                        position: absolute; 
+                        top: -5px; left: 50%; transform: translateX(-50%);
+                        background: {current_color}; 
+                        width: 60px; 
+                        {h_style}
+                        border: 3px solid #333;
+                        z-index: 10;
+                    ">
+                        <div style="background: rgba(255,255,255,0.3); width: 70%; height: 8px; margin: 5px auto; border-radius: 5px;"></div>
+                    </div>
+                </div>
+                <p style="margin-top:10px; color:#666;">โฉมหน้าปัจจุบัน</p>
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.write("---")
+    if st.button("💾 บันทึกรูปลักษณ์ใหม่", use_container_width=True, type="primary"):
+        try:
+            supabase.table("users").update({
+                "helmet_color": current_color,
+                "helmet_type": current_type
+            }).eq("username", st.session_state.user['username']).execute()
+            
+            # อัปเดตในเครื่องทันที
+            st.session_state.user['helmet_color'] = current_color
+            st.session_state.user['helmet_type'] = current_type
+            st.success("✨ ว้าว! คุณดูเท่ขึ้นเป็นกอง บันทึกเรียบร้อยครับ")
+            time.sleep(1)
+            st.rerun()
+        except Exception as e:
+            st.error(f"เกิดข้อผิดพลาด: {e}")
+
+    if st.button("⬅️ กลับหน้าหลัก", use_container_width=True):
+        st.session_state.page = 'game'
+        st.rerun()
