@@ -327,6 +327,117 @@ elif st.session_state.page == 'game':
         # ล้างค่าใน URL เพื่อไม่ให้มันจำ User เดิมมา Login ใหม่
         st.query_params.clear() 
         st.rerun()
+# 👨‍🏫 [โซนแอดมิน] ระบบ Game Master (Guild Control)
+# =========================================================
+elif st.session_state.page == 'admin_dashboard':
+    # --- 👮 1. ด่านตรวจสิทธิ์ (Security Guard) ---
+    if st.session_state.user is None or st.session_state.user.get('role') != 'admin': 
+        st.session_state.page = 'login'
+        st.query_params.clear()
+        st.rerun()
+    
+    # ดึงข้อมูลแอดมินมาใช้
+    adm = st.session_state.user
+    st.title("👨‍🏫 Game Master Dashboard")
+    st.markdown(f"ลงชื่อเข้าใช้โดย: **{adm.get('fullname', 'GM')}**")
+
+    # --- 2. ประกาศ Tabs ---
+    tab1, tab2, tab3 = st.tabs(["📋 ตรวจงานนักเรียน", "🛠️ จัดการภารกิจ", "📊 สถิตินักเรียน"])
+
+    # ---------------------------------------------------------
+    # TAB 1: ตรวจงาน (Review Submissions)
+    # ---------------------------------------------------------
+    with tab1:
+        st.subheader("📌 งานที่รอการอนุมัติ")
+        try:
+            # ดึงงานที่ pending พร้อมชื่อนักเรียน (ใช้ RPC หรือ Join Table)
+            res = supabase.table("submissions").select("*, users(fullname, total_exp)").eq("status", "pending").execute()
+            subs = res.data if res.data else []
+            
+            if not subs:
+                st.info("📭 ตอนนี้ไม่มีงานค้างในระบบ")
+            else:
+                for s in subs:
+                    # สร้างกล่องตรวจงาน
+                    with st.container():
+                        st.markdown(f"""<div style='background:#f9f9f9; padding:15px; border-radius:15px; border:1px solid #ddd; margin-bottom:10px;'>
+                            <b>ผู้ส่ง:</b> {s['users']['fullname']} <br>
+                            <b>ภารกิจ ID:</b> {s['mission_id']} | <b>ส่งเมื่อ:</b> {s['created_at'][:10]}
+                        </div>""", unsafe_allow_html=True)
+                        
+                        # แสดงภาพหลักฐาน
+                        if s.get('image_url'):
+                            st.image(f"https://drive.google.com/uc?id={s['image_url']}", caption="หลักฐานจากนักเรียน", use_container_width=True)
+                        
+                        c1, c2, c3 = st.columns([0.4, 0.3, 0.3])
+                        with c1:
+                            pts = st.number_input(f"ให้ EXP", 0, 500, 50, key=f"pts_{s['id']}")
+                        with c2:
+                            if st.button("✅ อนุมัติ", key=f"app_{s['id']}", use_container_width=True):
+                                # อัปเดตสถานะงาน
+                                supabase.table("submissions").update({"status": "approved", "points": pts}).eq("id", s['id']).execute()
+                                # เพิ่ม EXP ให้เด็ก
+                                new_exp = s['users']['total_exp'] + pts
+                                supabase.table("users").update({"total_exp": new_exp}).eq("username", s['user_username']).execute()
+                                st.success("บวกแต้มสำเร็จ!"); time.sleep(1); st.rerun()
+                        with c3:
+                            if st.button("❌ ปฏิเสธ", key=f"rej_{s['id']}", use_container_width=True):
+                                supabase.table("submissions").update({"status": "rejected"}).eq("id", s['id']).execute()
+                                st.warning("ปฏิเสธงานแล้ว"); time.sleep(1); st.rerun()
+                        st.write("---")
+        except Exception as e:
+            st.error(f"เกิดข้อผิดพลาดในการโหลดงาน: {e}")
+
+    # ---------------------------------------------------------
+    # TAB 2: จัดการภารกิจ (Manage Missions)
+    # ---------------------------------------------------------
+    with tab2:
+        st.subheader("➕ เพิ่มภารกิจใหม่")
+        with st.form("new_mission_form", clear_on_submit=True):
+            m_t = st.text_input("ชื่อภารกิจ", placeholder="เช่น ถ่ายรูปคู่มอเตอร์ไซค์")
+            m_d = st.text_area("รายละเอียดภารกิจ")
+            if st.form_submit_button("🚀 ประกาศภารกิจ", use_container_width=True):
+                if m_t and m_d:
+                    supabase.table("missions").insert({"title": m_t, "description": m_d, "is_active": True}).execute()
+                    st.success("ประกาศภารกิจใหม่สำเร็จ!"); time.sleep(1); st.rerun()
+                else:
+                    st.warning("กรุณากรอกข้อมูลให้ครบ")
+
+        st.write("---")
+        st.subheader("📋 ภารกิจทั้งหมด")
+        try:
+            m_list = supabase.table("missions").select("*").order("created_at", desc=True).execute().data
+            if m_list:
+                for m in m_list:
+                    col_a, col_b = st.columns([0.8, 0.2])
+                    col_a.write(f"**{m['title']}**")
+                    if col_b.button("🗑️ ลบ", key=f"del_{m['id']}"):
+                        supabase.table("missions").delete().eq("id", m['id']).execute()
+                        st.rerun()
+        except: pass
+
+    # ---------------------------------------------------------
+    # TAB 3: สถิตินักเรียน (Leaderboard)
+    # ---------------------------------------------------------
+    with tab3:
+        st.subheader("📊 รายชื่อนักเรียนและคะแนนสะสม")
+        try:
+            std_res = supabase.table("users").select("fullname, total_exp, helmet_color").eq("role", "player").order("total_exp", desc=True).execute().data
+            if std_res:
+                # แสดงเป็นตารางสวยงาม
+                st.table([{"ชื่อ-นามสกุล": x['fullname'], "EXP สะสม": x['total_exp'], "สีหมวก": x['helmet_color']} for x in std_res])
+            else:
+                st.info("ยังไม่มีนักเรียนในระบบ")
+        except: pass
+
+    # --- 3. Sidebar Logout (แยกจากหน้าจอหลักเพื่อความคลีน) ---
+    st.sidebar.write("---")
+    st.sidebar.write(f"GM: {adm['username']}")
+    if st.sidebar.button("🚪 ออกจากระบบ", key="logout_admin_final"):
+        st.session_state.user = None
+        st.session_state.page = 'login'
+        st.query_params.clear()
+        st.rerun()
 # =========================================================
 # 🎮 หน้า BONUS GAME: เกมเปิดป้าย (ฉบับแก้ไข AttributeError)
 # =========================================================
