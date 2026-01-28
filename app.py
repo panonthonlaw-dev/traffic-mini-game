@@ -214,35 +214,17 @@ elif st.session_state.page == 'game':
     if st.session_state.user.get('role') == 'admin':
         st.session_state.page = 'admin_dashboard'; st.rerun()
 
-    # --- 2. Injection CSS (บังคับสีตัวหนังสือให้ชัดเจน 100%) ---
+    # --- 2. Injection CSS (บังคับสีตัวหนังสือ + ปรับดีไซน์ Rank) ---
     st.markdown("""
         <style>
-            /* บังคับสีตัวหนังสือพื้นฐานให้เป็นสีเข้ม */
-            .stMarkdown, p, h1, h2, h3, h4, span {
-                color: #001f3f !important;
-            }
+            .stMarkdown, p, h1, h2, h3, h4, span { color: #001f3f !important; }
+            .stProgress > div > div > div > div { background-image: linear-gradient(to right, #00c6ff, #0072ff) !important; }
             
-            /* ปรับแต่ง Progress Bar */
-            .stProgress > div > div > div > div {
-                background-image: linear-gradient(to right, #00c6ff, #0072ff) !important;
-            }
-
-            /* ปุ่มเมนู (บังคับสีตัวหนังสือในปุ่ม) */
+            /* ปุ่มเมนูสไตล์ Glassmorphism */
             div[data-testid="stHorizontalBlock"] .stButton > button {
-                border-radius: 15px !important;
-                background: #ffffff !important;
-                border: 1.5px solid #1877f2 !important;
-                color: #1877f2 !important; /* สีตัวหนังสือบนปุ่ม */
-                font-weight: bold !important;
-                height: 60px !important;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
-            }
-            
-            /* ปุ่มภารกิจ (ทำให้ดูเป็นการ์ด) */
-            .stButton > button[kind="secondary"] {
-                color: #333 !important;
-                text-align: left !important;
-                padding-left: 20px !important;
+                border-radius: 15px !important; background: #ffffff !important;
+                border: 1.5px solid #1877f2 !important; color: #1877f2 !important;
+                font-weight: bold !important; height: 60px !important;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -255,16 +237,23 @@ elif st.session_state.page == 'game':
     u = st.session_state.user 
 
     if st.session_state.selected_mission is None:
-        # --- 3. ข้อมูลคำนวณ ---
+        # --- 3. ตรรกะคำนวณ Rank & EXP ---
         total_exp = u.get('total_exp', 0)
         level = (total_exp // 500) + 1
         
-        # สีไอเทม
+        # 🆕 คำนวณ Rank และสี Badge
+        if total_exp <= 100: rank, r_bg = "Beginner", "#8e9eab"
+        elif total_exp <= 300: rank, r_bg = "Pro", "#1877f2"
+        elif total_exp <= 600: rank, r_bg = "Expert", "#9c27b0"
+        elif total_exp <= 999: rank, r_bg = "Guardian", "#ff9800"
+        else: rank, r_bg = "Legendary", "#ff4b4b"
+
+        # ข้อมูลไอเทม
         hc, ht = u.get('helmet_color', '#31333F'), u.get('helmet_type', 'half')
         sc, fc, bc = u.get('shirt_color', '#FFFFFF'), u.get('shoes_color', '#333333'), u.get('bike_color', '#1877f2')
         h_css = "border-radius:50% 50% 20% 20%; height:32px;" if ht=='full' else "border-radius:50% 50% 0 0; height:22px;"
 
-        # --- 4. 💎 Profile Card (เน้นตัวหนังสือเข้มชัดเจน) ---
+        # --- 4. 💎 Profile Card ฉบับคืนชีพ Rank ---
         st.markdown(f"""
             <div style="background: #ffffff; padding: 25px; border-radius: 20px; border: 2px solid #f0f2f6; margin-bottom: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.05);">
                 <div style="display: flex; align-items: center; gap: 20px;">
@@ -281,31 +270,30 @@ elif st.session_state.page == 'game':
                             </div>
                             <div style="font-size: 45px; position: relative;">
                                 🏍️
-                                <div style="position: absolute; bottom: 8px; left: 10%; width: 80%; height: 6px; background: {bc}; border-radius: 5px; z-index: -1; filter: blur(1.5px);"></div>
+                                <div style="position: absolute; bottom: 8px; left: 10%; width: 80%; height: 6px; background: {bc}; border-radius: 10px; z-index: -1; filter: blur(1.5px);"></div>
                             </div>
                         </div>
                     </div>
                     <div style="flex-grow: 1;">
-                        <h2 style="margin: 0; color: #001f3f !important; font-size: 24px;">{u['fullname']}</h2>
-                        <p style="margin: 5px 0; color: #1877f2 !important; font-weight: bold; font-size: 16px;">🎖️ Level {level}</p>
-                        <p style="margin: 0; color: #555 !important; font-size: 14px;">🔥 สะสมได้ {total_exp} EXP</p>
+                        <span style="background: {r_bg}; color: white !important; padding: 3px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; text-transform: uppercase;">{rank}</span>
+                        <h2 style="margin: 5px 0 0 0; color: #001f3f !important; font-size: 24px;">{u['fullname']}</h2>
+                        <p style="margin: 0; color: #555 !important; font-size: 14px;">🎖️ Level {level} | 🔥 {total_exp} EXP</p>
                     </div>
                 </div>
             </div>
         """, unsafe_allow_html=True)
         
-        # แถบ EXP
         st.progress(min((total_exp % 500) / 500, 1.0))
-        st.markdown(f"<p style='text-align:right; font-size:12px; color:#1877f2; font-weight:bold;'>อีก {500-(total_exp%500)} EXP จะอัปเลเวล</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align:right; font-size:12px; color:#1877f2; font-weight:bold;'>อีก {500-(total_exp%500)} EXP สู่เลเวลถัดไป</p>", unsafe_allow_html=True)
 
         # --- 5. ปุ่มเมนูหลัก ---
         st.write(" ")
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("🎮 เล่นเกม", key="p_game", use_container_width=True):
+            if st.button("🎮 เล่นเกม", key="p_game_re", use_container_width=True):
                 st.session_state.page = 'bonus_game'; st.rerun()
         with c2:
-            if st.button("👕 แต่งตัว", key="d_room", use_container_width=True):
+            if st.button("👕 แต่งตัว", key="d_room_re", use_container_width=True):
                 st.session_state.page = 'dressing_room'; st.rerun()
 
         st.write("---")
@@ -320,41 +308,37 @@ elif st.session_state.page == 'game':
 
             for m in missions:
                 m_sub = done_dict.get(m['id'])
-                is_done = m['id'] in done_dict
                 col_m, col_s = st.columns([0.7, 0.3])
-                
                 with col_m:
-                    if st.button(f"🏁 {m['title']}", key=f"mission_{m['id']}", use_container_width=True):
+                    if st.button(f"🏁 {m['title']}", key=f"m_re_{m['id']}", use_container_width=True):
                         st.session_state.selected_mission = m['id']; st.rerun()
                 with col_s:
                     if m_sub and m_sub['status'] == 'approved':
                         st.markdown(f"<p style='color:#42b72a; font-weight:bold; padding-top:15px; text-align:center;'>+{m_sub['points']} EXP</p>", unsafe_allow_html=True)
-                    elif is_done:
+                    elif m['id'] in done_dict:
                         st.markdown(f"<p style='color:#f39c12; font-weight:bold; padding-top:15px; text-align:center;'>รอตรวจ</p>", unsafe_allow_html=True)
                     else:
                         st.markdown(f"<p style='color:#888; padding-top:15px; text-align:center;'>ยังไม่ส่ง</p>", unsafe_allow_html=True)
-        except:
-            st.error("ไม่สามารถโหลดภารกิจได้")
+        except: st.error("โหลดภารกิจล้มเหลว")
 
-        # --- 7. ปุ่มออกจากระบบ ---
         st.write(" ")
-        if st.button("🚪 ออกจากระบบ", key="logout_p", use_container_width=True):
+        if st.button("🚪 ออกจากระบบ", key="lo_p_re", use_container_width=True):
             st.session_state.user = None; st.session_state.page = 'login'; st.rerun()
 
-    # --- 8. หน้าทำภารกิจ ---
+    # --- 7. หน้าทำภารกิจ ---
     else:
         m_id = st.session_state.selected_mission
         m_data = supabase.table("missions").select("*").eq("id", m_id).single().execute().data
         st.markdown(f"<h2 style='color:#001f3f;'>{m_data['title']}</h2>", unsafe_allow_html=True)
-        if st.button("⬅️ ย้อนกลับ", key="back_to_g"): 
+        if st.button("⬅️ ย้อนกลับ", key="back_to_g_re"): 
             st.session_state.selected_mission = None; st.rerun()
         
         st.info(f"💡 {m_data.get('description', 'กรุณาอัปโหลดรูปหลักฐาน')}")
-        f = st.file_uploader("📸 แนบรูปถ่าย", type=['jpg','png','jpeg'], key="up_mission_f")
+        f = st.file_uploader("📸 แนบรูปถ่าย", type=['jpg','png','jpeg'], key="up_mission_re")
         
-        if f and st.button("🚀 ยืนยันส่งงาน", type="primary", use_container_width=True, key="submit_f"):
+        if f and st.button("🚀 ยืนยันส่งงาน", type="primary", use_container_width=True, key="submit_re"):
             with st.spinner("กำลังส่ง..."):
-                # ... (ส่วนโค้ดส่ง Google Script ของพี่เหมือนเดิม) ...
+                # (ส่วนโค้ดส่ง Google Script ของพี่เหมือนเดิมครับ)
                 st.success("ส่งงานสำเร็จ!"); time.sleep(2); st.session_state.selected_mission = None; st.rerun()
 # =========================================================
 # 🎮 หน้า BONUS GAME: เกมเปิดป้าย (ฉบับแก้ไข AttributeError)
