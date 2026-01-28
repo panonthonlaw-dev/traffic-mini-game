@@ -639,44 +639,35 @@ elif st.session_state.page == 'bonus_game':
             if key in st.session_state: del st.session_state[key]
         st.session_state.page = 'game'
         st.rerun()
-# 👗 หน้าแต่งตัว (Dressing Room) - Version ตู้เสื้อผ้าล้ำสมัย
+# 👗 หน้าแต่งตัว (Dressing Room) - Version ตู้โชว์ไอเทมแบบภาพ
 # =========================================================
 elif st.session_state.page == 'dressing_room':
     u = st.session_state.user
     user_exp = u.get('total_exp', 0)
     level = (user_exp // 500) + 1
     
-    st.markdown("<h2 style='text-align: center; color: #1877f2;'>👕 ห้องแต่งตัวนักบิด</h2>", unsafe_allow_html=True)
+    if st.button("⬅️ กลับ", key="back_top"):
+        for k in ['temp_color', 'temp_type']:
+            if k in st.session_state: del st.session_state[k]
+        go_to('game')
+
+    st.markdown("<h2 style='text-align: center; color: #1877f2;'>👕 ตู้เสื้อผ้านักบิด</h2>", unsafe_allow_html=True)
     
-    # --- 1. ข้อมูลตัวละคร ---
+    # --- 1. ข้อมูลตัวละคร (Compact) ---
     st.markdown(f"""
-        <div style='text-align: center; background: #e1f5fe; padding: 10px; border-radius: 15px; margin-bottom: 20px; border: 2px solid #0288d1;'>
-            <h4 style='margin:0; color: #01579b;'>Level {level} | {user_exp} EXP</h4>
+        <div style='text-align: center; background: #f0f2f6; padding: 10px; border-radius: 15px; margin-bottom: 20px;'>
+            <span style='color: #555;'>Level {level}</span> | <span style='color: #1877f2; font-weight:bold;'>{user_exp} EXP</span>
         </div>
     """, unsafe_allow_html=True)
 
-    # --- 2. ตั้งค่าไอเทมในตู้เสื้อผ้า (Type, Color, LevelReq, Icon) ---
-    helmet_items = [
-        {"name": "แดงคลาสสิก", "type": "half", "color": "#FF4B4B", "lv": 1, "icon": "🔴"},
-        {"name": "ดำเท่ๆ", "type": "half", "color": "#31333F", "lv": 1, "icon": "⚫"},
-        {"name": "เขียวสายป่า", "type": "half", "color": "#28A745", "lv": 2, "icon": "🟢"},
-        {"name": "น้ำเงินสปอร์ต", "type": "half", "color": "#007BFF", "lv": 2, "icon": "🔵"},
-        {"name": "เต็มใบแดง", "type": "full", "color": "#FF4B4B", "lv": 3, "icon": "👺"},
-        {"name": "เต็มใบดำเข้ม", "type": "full", "color": "#111111", "lv": 3, "icon": "🕶️"},
-        {"name": "ม่วงกาแล็กซี", "type": "full", "color": "#6A1B9A", "lv": 4, "icon": "🟣"},
-        {"name": "ขาวสะอาด", "type": "full", "color": "#FFFFFF", "lv": 4, "icon": "⚪"},
-        {"name": "ทองคำตำนาน", "type": "full", "color": "#FFD700", "lv": 5, "icon": "👑"},
-    ]
-
-    # --- 3. ส่วนแสดงผลการลองชุด (Preview) ---
-    # ใช้ค่าที่เลือกชั่วคราวใน session เพื่อให้กดแล้วเปลี่ยนทันที
+    # --- 2. Preview ตัวละคร ---
     if 'temp_color' not in st.session_state: st.session_state.temp_color = u.get('helmet_color', '#31333F')
     if 'temp_type' not in st.session_state: st.session_state.temp_type = u.get('helmet_type', 'half')
 
     h_style = "border-radius: 50% 50% 20% 20%; height: 50px;" if st.session_state.temp_type == 'full' else "border-radius: 50% 50% 0 0; height: 35px;"
     
     st.markdown(f"""
-        <div style="background: #ffffff; padding: 25px; border-radius: 20px; text-align: center; border: 3px solid #1877f2; margin-bottom: 20px;">
+        <div style="background: white; padding: 20px; border-radius: 20px; text-align: center; border: 2px solid #e0e0e0; margin-bottom: 25px;">
             <div style="position: relative; display: inline-block; font-size: 80px;">
                 👤
                 <div style="
@@ -691,55 +682,81 @@ elif st.session_state.page == 'dressing_room':
                     <div style="background: rgba(255,255,255,0.4); width: 70%; height: 8px; margin: 5px auto; border-radius: 5px;"></div>
                 </div>
             </div>
-            <p style="margin-top:10px; font-weight:bold; color:#1877f2;">สไตล์ที่คุณเลือก</p>
         </div>
     """, unsafe_allow_html=True)
 
-    st.write("---")
+    # --- 3. รายการหมวกในตู้ (เพิ่มสีและทรงให้เยอะขึ้น) ---
+    items = [
+        {"id": 1, "name": "Classic Red", "type": "half", "color": "#FF4B4B", "lv": 1},
+        {"id": 2, "name": "Night Black", "type": "half", "color": "#31333F", "lv": 1},
+        {"id": 3, "name": "Forest Green", "type": "half", "color": "#28A745", "lv": 2},
+        {"id": 4, "name": "Deep Ocean", "type": "half", "color": "#007BFF", "lv": 2},
+        {"id": 5, "name": "Full Red", "type": "full", "color": "#FF4B4B", "lv": 3},
+        {"id": 6, "name": "Full Stealth", "type": "full", "color": "#111111", "lv": 3},
+        {"id": 7, "name": "Full Pink", "type": "full", "color": "#FF69B4", "lv": 4},
+        {"id": 8, "name": "Full Galaxy", "type": "full", "color": "#6A1B9A", "lv": 4},
+        {"id": 9, "name": "Legend Gold", "type": "full", "color": "#FFD700", "lv": 5},
+    ]
 
-    # --- 4. ตู้เลือกหมวก (Closet Gallery) ---
-    st.subheader("เลือกหมวกจากตู้เสื้อผ้า")
-    
-    # แบ่งเป็นแถวละ 3 ใบ
-    for row in [helmet_items[i:i+3] for i in range(0, len(helmet_items), 3)]:
-        cols = st.columns(3)
-        for idx, item in enumerate(row):
-            with cols[idx]:
+    st.subheader("เลือกไอเทมของคุณ")
+
+    # --- 4. แสดงผลแบบตารางภาพ ---
+    row_count = 3
+    for i in range(0, len(items), row_count):
+        cols = st.columns(row_count)
+        for j, item in enumerate(items[i:i+row_count]):
+            with cols[j]:
                 is_locked = level < item['lv']
                 
+                # ตกแต่ง CSS สำหรับตัวอย่างภาพหมวกในกล่อง
+                img_h_style = "border-radius: 50% 50% 20% 20%; height: 35px;" if item['type'] == 'full' else "border-radius: 50% 50% 0 0; height: 25px;"
+                bg_color = "#f0f0f0" if not is_locked else "#f5f5f5"
+                filter_style = "filter: grayscale(100%); opacity: 0.5;" if is_locked else ""
+                
+                # วาดกล่องไอเทม
+                st.markdown(f"""
+                    <div style="background: {bg_color}; padding: 15px; border-radius: 10px; text-align: center; border: 1px solid #ddd; {filter_style}">
+                        <div style="position: relative; display: inline-block; font-size: 30px; margin-bottom: 5px;">
+                            👤
+                            <div style="
+                                position: absolute; top: -2px; left: 50%; transform: translateX(-50%);
+                                background: {item['color']}; width: 28px; {img_h_style}
+                                border: 2px solid #333; z-index: 10;
+                            "></div>
+                        </div>
+                        <div style="font-size: 11px; font-weight: bold; color: #555;">{item['name']}</div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # ปุ่มเลือก (หรือปุ่มล็อค)
                 if is_locked:
-                    st.button(f"🔒 Lv.{item['lv']}", key=f"lock_{item['name']}", use_container_width=True, disabled=True)
+                    st.button(f"🔒 Lv.{item['lv']}", key=f"lk_{item['id']}", disabled=True, use_container_width=True)
                 else:
-                    # ถ้ากดปุ่มหมวกใบนี้
-                    if st.button(f"{item['icon']}\n{item['name']}", key=f"set_{item['name']}", use_container_width=True):
+                    if st.button("เลือก", key=f"sel_{item['id']}", use_container_width=True):
                         st.session_state.temp_color = item['color']
                         st.session_state.temp_type = item['type']
                         st.rerun()
 
     st.write("---")
     
-    # --- 5. ปุ่มบันทึก ---
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("💾 บันทึกชุดนี้", type="primary", use_container_width=True):
+    # --- 5. ปุ่มบันทึก/ยกเลิก ---
+    c_save, c_can = st.columns(2)
+    with c_save:
+        if st.button("💾 บันทึกรูปลักษณ์", type="primary", use_container_width=True):
             try:
                 supabase.table("users").update({
                     "helmet_color": st.session_state.temp_color,
                     "helmet_type": st.session_state.temp_type
                 }).eq("username", u['username']).execute()
                 
-                # อัปเดต session หลัก
                 st.session_state.user['helmet_color'] = st.session_state.temp_color
                 st.session_state.user['helmet_type'] = st.session_state.temp_type
-                st.success("บันทึกรูปลักษณ์ใหม่เรียบร้อย!")
+                st.success("บันทึกเรียบร้อย!")
                 time.sleep(1)
                 go_to('game')
             except Exception as e:
-                st.error(f"บันทึกไม่ได้: {e}")
+                st.error(f"Error: {e}")
                 
-    with col2:
+    with c_can:
         if st.button("❌ ยกเลิก", use_container_width=True):
-            # คืนค่าเดิม
-            st.session_state.temp_color = u.get('helmet_color', '#31333F')
-            st.session_state.temp_type = u.get('helmet_type', 'half')
             go_to('game')
