@@ -526,14 +526,81 @@ elif st.session_state.page == 'admin_dashboard':
         st.session_state.user = None
         st.query_params.clear()
         go_to('login')# =========================================================
-# 🎮 หน้า BONUS GAME: วิ่งสู้ฟัดล่าหมวกกันน็อก (Responsive Version)
+# =========================================================
+# 🎮 หน้า BONUS GAME: มินิเกม & ตู้กาชา (ฉบับรวมร่างสมบูรณ์)
 # =========================================================
 elif st.session_state.page == 'bonus_game':
-    # ส่วนหัวหน้าเกม
-    st.markdown("<h2 style='text-align: center; color:#1877f2; margin-bottom:0;'>🏃‍♂️ Traffic Runner</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color:#555;'>กระโดดเก็บหมวก 🪖 และหลบกรวย 🚧</p>", unsafe_allow_html=True)
+    u = st.session_state.user
+    
+    # 1. ส่วนหัวและตู้สุ่ม (วางไว้บนสุดให้เห็นชัดๆ)
+    st.markdown("<h2 style='text-align: center; color:#1877f2; margin-bottom:0;'>🎰 ตู้สุ่มรางวัล EXP</h2>", unsafe_allow_html=True)
+    
+    # --- Logic เช็กสิทธิ์ (ตั๋ว) ---
+    try:
+        m_res = supabase.table("submissions").select("id", count="exact").eq("user_username", u['username']).execute()
+        mission_count = m_res.count if m_res.count else 0
+        played_count = u.get('game_played_count', 0)
+        available_tickets = mission_count - played_count
+    except:
+        mission_count, played_count, available_tickets = 0, 0, 0
 
-    # --- ตัวเกม HTML5 + JavaScript (ฉบับแก้สัดส่วนมือถือ) ---
+    # แสดงตั๋วคงเหลือแบบเด่นๆ
+    st.markdown(f"""
+        <div style='background: white; padding: 15px; border-radius: 15px; border: 2px solid #1877f2; text-align: center; margin-bottom: 20px;'>
+            <p style='margin:0; color:#666; font-size: 14px;'>ตั๋วกาชาคงเหลือ (ส่ง 1 งาน = 1 ใบ)</p>
+            <h2 style='margin:0; color:#1877f2;'>🎟️ {max(0, available_tickets)} ใบ</h2>
+        </div>
+    """, unsafe_allow_html=True)
+
+    # ส่วนคำนวณคะแนนและปุ่มสุ่ม
+    col_input, col_info = st.columns([0.6, 0.4])
+    with col_input:
+        score_achieved = st.number_input("ระบุคะแนนที่ทำได้จากเกม:", min_value=0, step=100, key="gacha_score_input")
+    with col_info:
+        spins_earned = int(score_achieved // 300)
+        st.markdown(f"<div style='text-align:center;'>สิทธิ์สุ่มที่ได้<br><b style='font-size:20px; color:#28a745;'>{spins_earned} ครั้ง</b></div>", unsafe_allow_html=True)
+
+    # --- 🎰 ปุ่มสุ่มรางวัล ---
+    if spins_earned > 0 and available_tickets > 0:
+        if st.button(f"✨ กดสุ่มรางวัล {spins_earned} ครั้ง!", type="primary", use_container_width=True):
+            pool = [5, 10, 20, 50, 100]
+            weights = [40, 35, 15, 7, 3] # % ตามที่พี่กำหนด
+            
+            results = []
+            total_win = 0
+            for _ in range(spins_earned):
+                res = random.choices(pool, weights=weights, k=1)[0]
+                results.append(res)
+                total_win += res
+            
+            try:
+                new_exp = (u.get('total_exp', 0)) + total_win
+                new_played = played_count + 1 # หักตั๋ว 1 ใบ
+                
+                supabase.table("users").update({
+                    "total_exp": new_exp,
+                    "game_played_count": new_played
+                }).eq("username", u['username']).execute()
+                
+                st.session_state.user['total_exp'] = new_exp
+                st.session_state.user['game_played_count'] = new_played
+                
+                st.balloons()
+                st.success(f"🎊 ยินดีด้วย! คุณสุ่มได้ EXP: {' + '.join(map(str, results))} (รวม +{total_win})")
+                time.sleep(2)
+                st.rerun()
+            except:
+                st.error("เกิดข้อผิดพลาดในการบันทึกคะแนน")
+    else:
+        # ปุ่มหลอกให้รู้ว่ามีระบบนี้อยู่
+        msg = "ต้องมี 300 แต้มขึ้นไป" if spins_earned == 0 else "ตั๋วหมด (ไปส่งงานเพิ่ม)"
+        st.button(f"🎰 {msg}", disabled=True, use_container_width=True)
+
+    st.write("---")
+
+    # 2. ตัวมินิเกม (วางไว้ข้างล่างตู้กาชา)
+    st.markdown("<p style='text-align: center; color:#666;'>🎮 เล่นมินิเกมเก็บแต้มด้านล่างนี้</p>", unsafe_allow_html=True)
+    
     game_html = """
     <!DOCTYPE html>
     <html>
@@ -541,37 +608,12 @@ elif st.session_state.page == 'bonus_game':
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <style>
-            body { margin: 0; display: flex; flex-direction: column; align-items: center; font-family: 'Arial', sans-serif; background: transparent; touch-action: none; }
-            #game-container { 
-                position: relative; 
-                width: 95vw; 
-                max-width: 600px; 
-                aspect-ratio: 2 / 1; 
-                background: #87CEEB; 
-                border: 3px solid #003366; 
-                border-radius: 15px; 
-                overflow: hidden; 
-                box-shadow: 0 8px 16px rgba(0,0,0,0.2);
-            }
-            #ui { 
-                position: absolute; top: 10px; left: 10px; 
-                font-size: 14px; font-weight: bold; color: #003366; 
-                z-index: 5; background: rgba(255,255,255,0.8); 
-                padding: 5px 10px; border-radius: 20px; 
-            }
-            #game-over { 
-                display: none; position: absolute; top: 50%; left: 50%; 
-                transform: translate(-50%, -50%); background: white; 
-                padding: 20px; border-radius: 15px; text-align: center; 
-                box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 10; width: 70%;
-                border: 3px solid #1877f2;
-            }
+            body { margin: 0; display: flex; flex-direction: column; align-items: center; background: transparent; touch-action: none; }
+            #game-container { position: relative; width: 95vw; max-width: 600px; aspect-ratio: 2/1; background: #87CEEB; border: 3px solid #003366; border-radius: 15px; overflow: hidden; }
+            #ui { position: absolute; top: 10px; left: 10px; font-size: 14px; font-weight: bold; color: #003366; z-index: 5; background: rgba(255,255,255,0.8); padding: 5px 10px; border-radius: 20px; }
+            #game-over { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 15px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.3); z-index: 10; width: 70%; border: 3px solid #1877f2; }
             canvas { display: block; width: 100%; height: 100%; }
-            button { 
-                padding: 10px 25px; background: #1877f2; color: white; 
-                border: none; border-radius: 8px; font-size: 16px; font-weight: bold;
-                cursor: pointer; margin-top: 10px;
-            }
+            button { padding: 10px 25px; background: #1877f2; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
         </style>
     </head>
     <body>
@@ -584,105 +626,53 @@ elif st.session_state.page == 'bonus_game':
                 <button onclick="resetGame()">ลองอีกรอบ!</button>
             </div>
         </div>
-
         <script>
             const canvas = document.getElementById('gameCanvas');
             const ctx = canvas.getContext('2d');
             const ui = document.getElementById('ui');
             const gameOverUI = document.getElementById('game-over');
             const finalScoreUI = document.getElementById('final-score');
-
             let score = 0, highScore = 0, isGameOver = false, frame = 0, speed = 5;
             let player = { x: 50, y: 210, w: 40, h: 50, dy: 0, jump: -12, gravity: 0.7, grounded: false };
             let obstacles = [], helmets = [];
-
-            function spawnObstacle() {
-                if (frame % Math.floor(100 - speed) === 0) {
-                    obstacles.push({ x: 600, y: 230, w: 30, h: 40, type: '🚧' });
-                }
-            }
-
-            function spawnHelmet() {
-                if (frame % 160 === 0) {
-                    helmets.push({ x: 600, y: 100 + Math.random()*80, w: 35, h: 35, type: '🪖' });
-                }
-            }
-
-            function resetGame() {
-                score = 0; speed = 5; frame = 0; obstacles = []; helmets = [];
-                player.y = 210; player.dy = 0; isGameOver = false;
-                gameOverUI.style.display = 'none';
-                animate();
-            }
-
+            function spawnObstacle() { if (frame % Math.floor(100 - speed) === 0) obstacles.push({ x: 600, y: 230, w: 30, h: 40, type: '🚧' }); }
+            function spawnHelmet() { if (frame % 160 === 0) helmets.push({ x: 600, y: 100 + Math.random()*80, w: 35, h: 35, type: '🪖' }); }
+            function resetGame() { score = 0; speed = 5; frame = 0; obstacles = []; helmets = []; player.y = 210; player.dy = 0; isGameOver = false; gameOverUI.style.display = 'none'; animate(); }
             function animate() {
                 if (isGameOver) return;
                 ctx.clearRect(0, 0, 600, 300);
                 frame++; score += 0.1;
                 if (frame % 1000 === 0) speed += 0.5;
-
-                // --- 🛣️ วาดถนน ---
-                ctx.fillStyle = "#555";
-                ctx.fillRect(0, 270, 600, 30);
-                ctx.strokeStyle = "#FFF";
-                ctx.setLineDash([15, 10]);
-                ctx.beginPath(); ctx.moveTo(0, 285); ctx.lineTo(600, 285); ctx.stroke();
-
-                // --- 🏃‍♂️ ตัวละคร ---
-                player.dy += player.gravity;
-                player.y += player.dy;
+                ctx.fillStyle = "#555"; ctx.fillRect(0, 270, 600, 30);
+                ctx.strokeStyle = "#FFF"; ctx.setLineDash([15, 10]); ctx.beginPath(); ctx.moveTo(0, 285); ctx.lineTo(600, 285); ctx.stroke();
+                player.dy += player.gravity; player.y += player.dy;
                 if (player.y > 210) { player.y = 210; player.dy = 0; player.grounded = true; }
-                ctx.font = "45px Arial";
-                ctx.fillText("🏃‍♂️", player.x, player.y + 40);
-
-                // --- 🚧 สิ่งกีดขวาง ---
+                ctx.font = "45px Arial"; ctx.fillText("🏃‍♂️", player.x, player.y + 40);
                 spawnObstacle();
                 obstacles.forEach((o, i) => {
-                    o.x -= speed;
-                    ctx.font = "35px Arial";
-                    ctx.fillText(o.type, o.x, o.y + 35);
-                    if (o.x < player.x + 25 && o.x + 20 > player.x && o.y < player.y + 40 && o.y + 30 > player.y) {
-                        isGameOver = true;
-                    }
+                    o.x -= speed; ctx.font = "35px Arial"; ctx.fillText(o.type, o.x, o.y + 35);
+                    if (o.x < player.x + 25 && o.x + 20 > player.x && o.y < player.y + 40 && o.y + 30 > player.y) isGameOver = true;
                     if (o.x < -50) obstacles.splice(i, 1);
                 });
-
-                // --- 🪖 ของเก็บ ---
                 spawnHelmet();
                 helmets.forEach((h, i) => {
-                    h.x -= speed;
-                    ctx.font = "35px Arial";
-                    ctx.fillText(h.type, h.x, h.y + 35);
-                    if (h.x < player.x + 35 && h.x + 20 > player.x && h.y < player.y + 40 && h.y + 30 > player.y) {
-                        helmets.splice(i, 1); score += 50;
-                    }
+                    h.x -= speed; ctx.font = "35px Arial"; ctx.fillText(h.type, h.x, h.y + 35);
+                    if (h.x < player.x + 35 && h.x + 20 > player.x && h.y < player.y + 40 && h.y + 30 > player.y) { helmets.splice(i, 1); score += 50; }
                     if (h.x < -50) helmets.splice(i, 1);
                 });
-
                 if (score > highScore) highScore = Math.floor(score);
                 ui.innerHTML = `Score: ${Math.floor(score)} | High: ${highScore}`;
-
-                if (isGameOver) {
-                    gameOverUI.style.display = 'block';
-                    finalScoreUI.innerHTML = `คะแนนรวม: ${Math.floor(score)}`;
-                } else {
-                    requestAnimationFrame(animate);
-                }
+                if (isGameOver) { gameOverUI.style.display = 'block'; finalScoreUI.innerHTML = `คะแนน: ${Math.floor(score)}`; }
+                else requestAnimationFrame(animate);
             }
-
             const handleJump = (e) => {
                 if (e.type === 'keydown' && e.code !== 'Space') return;
-                if (player.grounded && !isGameOver) {
-                    player.dy = player.jump;
-                    player.grounded = false;
-                }
+                if (player.grounded && !isGameOver) { player.dy = player.jump; player.grounded = false; }
                 if (e.cancelable) e.preventDefault();
             };
-
             window.addEventListener('keydown', handleJump);
             window.addEventListener('touchstart', handleJump, { passive: false });
             window.addEventListener('mousedown', handleJump);
-
             animate();
         </script>
     </body>
@@ -690,105 +680,9 @@ elif st.session_state.page == 'bonus_game':
     """
     
     import streamlit.components.v1 as components
-    # แสดงผลเกมด้วยความกว้างที่เหมาะสม
-    components.html(game_html, height=400)
-
-    # --- ปุ่มกลับหน้าหลัก (ตรวจสอบสิทธิ์เพื่อส่งกลับหน้าเดิม) ---
-    st.write("---")
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        if st.button("⬅️ กลับไปหน้าหลัก", use_container_width=True):
-            if st.session_state.user.get('role') == 'admin':
-                st.session_state.page = 'admin_dashboard'
-            else:
-                st.session_state.page = 'game'
-            st.rerun()
-
-# =========================================================
-# 🎮 หน้า BONUS GAME: ระบบ Gacha และ มินิเกม (ฉบับหาเจอง่าย 100%)
-# =========================================================
-elif st.session_state.page == 'bonus_game':
-    u = st.session_state.user
-    st.markdown("<h2 style='text-align: center; color:#1877f2;'>🎰 ตู้สุ่มรางวัล EXP นักบิด</h2>", unsafe_allow_html=True)
-
-    # --- 1. ส่วนเช็กสิทธิ์ (ตั๋วเข้าเล่น) ---
-    try:
-        # นับจำนวนงานที่ส่งแล้ว
-        m_res = supabase.table("submissions").select("id", count="exact").eq("user_username", u['username']).execute()
-        mission_count = m_res.count if m_res.count else 0
-        # ครั้งที่เคยสุ่มไปแล้ว
-        played_count = u.get('game_played_count', 0)
-        available_tickets = mission_count - played_count
-    except:
-        mission_count, played_count, available_tickets = 0, 0, 0
-
-    # --- 2. 🎰 ส่วนของตู้กาชา (วางไว้ข้างบนให้เห็นชัดๆ) ---
-    with st.container():
-        st.markdown(f"""
-            <div style='background: white; padding: 15px; border-radius: 15px; border: 2px solid #1877f2; text-align: center;'>
-                <p style='margin:0; color:#666;'>ตั๋วกาชาคงเหลือ (จากการส่งงาน)</p>
-                <h2 style='margin:0; color:#1877f2;'>🎟️ {max(0, available_tickets)} ใบ</h2>
-            </div>
-        """, unsafe_allow_html=True)
-
-        st.write("")
-        col_input, col_info = st.columns([0.6, 0.4])
-        
-        with col_input:
-            # ช่องกรอกคะแนนที่ทำได้
-            score_achieved = st.number_input("ระบุคะแนนที่ทำได้จากมินิเกม:", min_value=0, step=100, key="manual_score")
-        
-        with col_info:
-            spins_earned = int(score_achieved // 300)
-            st.markdown(f"<div style='text-align:center;'>สิทธิ์สุ่มที่ได้<br><b>{spins_earned} ครั้ง</b></div>", unsafe_allow_html=True)
-
-        # --- ปุ่มสุ่มรางวัล (หัวใจหลัก) ---
-        if spins_earned > 0 and available_tickets > 0:
-            if st.button(f"🎰 กดสุ่มรางวัล {spins_earned} ครั้ง!", type="primary", use_container_width=True):
-                # โอกาสสุ่ม: 5(40%), 10(35%), 20(15%), 50(7%), 100(3%)
-                pool = [5, 10, 20, 50, 100]
-                weights = [40, 35, 15, 7, 3]
-                
-                win_list = []
-                total_win = 0
-                for _ in range(spins_earned):
-                    res = random.choices(pool, weights=weights, k=1)[0]
-                    win_list.append(res)
-                    total_win += res
-                
-                # บันทึกข้อมูล
-                try:
-                    new_exp = (u.get('total_exp', 0)) + total_win
-                    new_played = played_count + 1
-                    
-                    supabase.table("users").update({
-                        "total_exp": new_exp,
-                        "game_played_count": new_played
-                    }).eq("username", u['username']).execute()
-                    
-                    st.session_state.user['total_exp'] = new_exp
-                    st.session_state.user['game_played_count'] = new_played
-                    
-                    st.balloons()
-                    st.success(f"🎊 ยินดีด้วย! คุณได้รับ EXP: {' + '.join(map(str, win_list))} (รวม +{total_win})")
-                    time.sleep(2)
-                    st.rerun()
-                except:
-                    st.error("ระบบขัดข้องในการบันทึก")
-        else:
-            # แสดงปุ่มแบบกดไม่ได้ (Disabled) เพื่อให้รู้ว่ามันอยู่ตรงนี้
-            reason = "ต้องมี 300 แต้มขึ้นไป" if spins_earned == 0 else "ตั๋วหมด (ไปส่งงานเพิ่ม)"
-            st.button(f"🎰 {reason}", disabled=True, use_container_width=True)
-
-    st.write("---")
-
-    # --- 3. ตัวมินิเกม (วางไว้ข้างล่างกาชา) ---
-    st.markdown("<p style='text-align: center; color:#666;'>🎮 เล่นมินิเกมเพื่อสะสมแต้มมาสุ่มรางวัลด้านบน</p>", unsafe_allow_html=True)
-    import streamlit.components.v1 as components
-    # เรียกใช้ตัวแปร game_html ที่พี่มีอยู่ด้านบน
     components.html(game_html, height=380)
 
-    # --- ปุ่มกลับหน้าหลัก ---
+    # 3. ปุ่มกลับหน้าหลัก (วางล่างสุด)
     if st.button("⬅️ กลับหน้าหลัก", use_container_width=True):
         st.session_state.page = 'game'
         st.rerun()
