@@ -272,10 +272,6 @@ elif st.session_state.page == 'game':
         st.progress(min(progress, 1.0))
         st.write("---")
         
-        # --- 4. แสดงแถบ EXP และเส้นคั่น ---
-        st.write(f"EXP รวม: {total_exp}")
-        st.progress(min(progress, 1.0))
-        st.write("---")
 
         # สร้าง 2 คอลัมน์เพื่อให้ปุ่มวางคู่กันครับ
         col_play, col_dress = st.columns(2)
