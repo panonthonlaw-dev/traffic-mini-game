@@ -639,29 +639,23 @@ elif st.session_state.page == 'bonus_game':
             if key in st.session_state: del st.session_state[key]
         st.session_state.page = 'game'
         st.rerun()
-# 👗 หน้าแต่งตัว (Dressing Room) - Pixel Perfect Alignment
+# 👗 หน้าแต่งตัว (Dressing Room) - Compact Preview & Pixel Perfect Buttons
 # =========================================================
 elif st.session_state.page == 'dressing_room':
     u = st.session_state.user
     user_exp = u.get('total_exp', 0)
     level = (user_exp // 500) + 1
 
-    # --- 🆕 1. ฉีด CSS แบบเจาะจงเพื่อบังคับปุ่ม บันทึก & ย้อนกลับ ให้เท่ากัน ---
+    # --- CSS บังคับปุ่มให้เท่ากันเป๊ะ (คงเดิมไว้) ---
     st.markdown("""
         <style>
-            /* บังคับปุ่มในคอลัมน์ล่างสุดให้สูงและกว้างเท่ากันเป๊ะ */
             div[data-testid="stHorizontalBlock"] .stButton > button {
-                width: 100% !important;
-                height: 50px !important;  /* บังคับความสูง 50px */
-                padding: 0px !important;
-                margin: 0px !important;
-                box-sizing: border-box !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
+                width: 100% !important; height: 50px !important;
+                padding: 0px !important; margin: 0px !important;
+                box-sizing: border-box !important; display: flex !important;
+                align-items: center !important; justify-content: center !important;
                 border-radius: 10px !important;
             }
-            /* ปรับแต่งเส้นขอบของปุ่มปกติให้หนาเท่าปุ่ม Primary */
             div[data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] {
                 border: 1px solid #ddd !important;
             }
@@ -670,36 +664,37 @@ elif st.session_state.page == 'dressing_room':
     
     st.markdown("<h2 style='text-align: center; color: #1877f2;'>👕 ตู้เสื้อผ้านักบิด</h2>", unsafe_allow_html=True)
     
-    # ส่วนแสดงเลเวล
+    # 1. ข้อมูลเลเวล
     st.markdown(f"""
-        <div style='text-align: center; background: #f0f2f6; padding: 10px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #ddd;'>
+        <div style='text-align: center; background: #f0f2f6; padding: 8px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #ddd; font-size: 14px;'>
             <span style='color: #555;'>Level {level}</span> | <span style='color: #1877f2; font-weight:bold;'>{user_exp} EXP</span>
         </div>
     """, unsafe_allow_html=True)
 
-    # 2. Preview ตัวละคร
+    # 2. Preview ตัวละคร (✨ ปรับลดขนาดลงตรงนี้ ✨)
     if 'temp_color' not in st.session_state: st.session_state.temp_color = u.get('helmet_color', '#31333F')
     if 'temp_type' not in st.session_state: st.session_state.temp_type = u.get('helmet_type', 'half')
 
-    h_style = "border-radius: 50% 50% 20% 20%; height: 50px;" if st.session_state.temp_type == 'full' else "border-radius: 50% 50% 0 0; height: 35px;"
+    # ปรับความสูงหมวกให้เล็กลงตามสัดส่วน
+    h_style = "border-radius: 50% 50% 20% 20%; height: 40px;" if st.session_state.temp_type == 'full' else "border-radius: 50% 50% 0 0; height: 28px;"
     
     st.markdown(f"""
-        <div style="background: white; padding: 25px; border-radius: 20px; text-align: center; border: 2px solid #1877f2; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-            <div style="position: relative; display: inline-block; font-size: 85px;">
+        <div style="background: white; padding: 15px; border-radius: 15px; text-align: center; border: 2px solid #1877f2; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+            <div style="position: relative; display: inline-block; font-size: 65px;">
                 👤
                 <div style="
                     position: absolute; 
-                    top: -5px; left: 50%; transform: translateX(-50%);
+                    top: -4px; left: 50%; transform: translateX(-50%);
                     background: {st.session_state.temp_color}; 
-                    width: 70px; 
+                    width: 55px; /* ลดความกว้างหมวก */
                     {h_style}
-                    border: 3px solid #333;
+                    border: 2px solid #333; /* ลดความหนาขอบ */
                     z-index: 10;
                 ">
-                    <div style="background: rgba(255,255,255,0.4); width: 70%; height: 8px; margin: 6px auto; border-radius: 5px;"></div>
+                    <div style="background: rgba(255,255,255,0.4); width: 70%; height: 6px; margin: 4px auto; border-radius: 3px;"></div>
                 </div>
             </div>
-            <p style="margin-top:10px; font-weight:bold; color:#1877f2;">ชุดที่กำลังลอง</p>
+            <p style="margin-top:5px; font-size: 14px; font-weight:bold; color:#1877f2;">ชุดที่กำลังลอง</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -718,25 +713,23 @@ elif st.session_state.page == 'dressing_room':
 
     st.subheader("🛍️ เลือกหมวกจากตู้")
 
-    # 4. แสดงผลตู้ไอเทม (3 ใบต่อแถว)
+    # 4. แสดงตู้ไอเทม
     for i in range(0, len(items), 3):
         cols = st.columns(3)
         for j, item in enumerate(items[i:i+3]):
             with cols[j]:
                 is_locked = level < item['lv']
-                
-                # กราฟิกจำลองในตู้
                 img_h_style = "border-radius: 50% 50% 20% 20%; height: 35px;" if item['type'] == 'full' else "border-radius: 50% 50% 0 0; height: 25px;"
                 bg_box = "#ffffff" if not is_locked else "#f5f5f5"
                 filter_lock = "filter: grayscale(100%); opacity: 0.4;" if is_locked else ""
                 
                 st.markdown(f"""
-                    <div style="background: {bg_box}; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid #ddd; {filter_lock} margin-bottom:5px;">
-                        <div style="position: relative; display: inline-block; font-size: 35px; margin-bottom: 5px;">
+                    <div style="background: {bg_box}; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #ddd; {filter_lock} margin-bottom:5px;">
+                        <div style="position: relative; display: inline-block; font-size: 30px; margin-bottom: 5px;">
                             👤
                             <div style="
                                 position: absolute; top: -2px; left: 50%; transform: translateX(-50%);
-                                background: {item['color']}; width: 28px; {img_h_style}
+                                background: {item['color']}; width: 26px; {img_h_style}
                                 border: 2px solid #333; z-index: 10;
                             "></div>
                         </div>
@@ -754,23 +747,20 @@ elif st.session_state.page == 'dressing_room':
 
     st.write("---")
     
-    # --- 5. ปุ่มแอ็กชัน (Pixel Perfect Match) ---
+    # 5. ปุ่มแอ็กชัน (Pixel Perfect Match)
     col_save, col_back = st.columns(2)
     
     with col_save:
-        # ใช้ Key พิเศษเพื่อให้ CSS จับได้ง่าย
         if st.button("💾 บันทึก", type="primary", key="btn_save_outfit", use_container_width=True):
             try:
                 supabase.table("users").update({
                     "helmet_color": st.session_state.temp_color,
                     "helmet_type": st.session_state.temp_type
                 }).eq("username", u['username']).execute()
-                
                 st.session_state.user['helmet_color'] = st.session_state.temp_color
                 st.session_state.user['helmet_type'] = st.session_state.temp_type
                 st.success("บันทึกสำเร็จ!")
                 time.sleep(1)
-                # ล้างค่า temp ก่อนกลับ
                 for k in ['temp_color', 'temp_type']:
                     if k in st.session_state: del st.session_state[k]
                 go_to('game')
@@ -779,7 +769,6 @@ elif st.session_state.page == 'dressing_room':
                 
     with col_back:
         if st.button("⬅️ ย้อนกลับ", key="btn_back_outfit", use_container_width=True):
-            # ล้างค่าชั่วคราวทิ้งและกลับ
             for k in ['temp_color', 'temp_type']:
                 if k in st.session_state: del st.session_state[k]
             go_to('game')
