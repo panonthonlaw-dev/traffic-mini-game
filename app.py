@@ -210,30 +210,31 @@ elif st.session_state.page == 'game':
     if st.session_state.user is None: 
         go_to('login')
         
+    # --- 🆕 1. ดึงข้อมูลล่าสุดจากตาราง users โดยตรง (เพื่อความชัวร์) ---
+    try:
+        u_res = supabase.table("users").select("*").eq("username", st.session_state.user['username']).single().execute()
+        if u_res.data:
+            st.session_state.user = u_res.data # อัปเดตข้อมูลใน Session ให้เป็นปัจจุบันที่สุด
+    except:
+        pass
+
     u = st.session_state.user 
+    total_exp = u.get('total_exp', 0) # ดึงจากคอลัมน์ total_exp เลยครับพี่
 
-    if st.session_state.selected_mission is None:
-        # --- 1. Logic ดึงคะแนน (ทำแค่รอบเดียวพอ) ---
-        try:
-            points_res = supabase.table("submissions").select("points").eq("user_username", u['username']).execute().data
-            total_exp = sum(p['points'] for p in points_res if p.get('points'))
-        except:
-            total_exp = 0
+    # --- 2. คำนวณ Rank (ใช้ตัวแปร total_exp ที่ดึงมาใหม่) ---
+    if total_exp <= 100:
+        rank, progress = "Beginner", total_exp / 100
+    elif total_exp <= 300:
+        rank, progress = "Pro", (total_exp - 100) / 200
+    elif total_exp <= 600:
+        rank, progress = "Expert", (total_exp - 300) / 300
+    elif total_exp <= 999:
+        rank, progress = "Guardian", (total_exp - 600) / 399
+    else:
+        rank, progress = "Legendary", 1.0
 
-        # --- 2. คำนวณ Rank ---
-        if total_exp <= 100:
-            rank, progress = "Beginner", total_exp / 100
-        elif total_exp <= 300:
-            rank, progress = "Pro", (total_exp - 100) / 200
-        elif total_exp <= 600:
-            rank, progress = "Expert", (total_exp - 300) / 300
-        elif total_exp <= 999:
-            rank, progress = "Guardian", (total_exp - 600) / 399
-        else:
-            rank, progress = "Legendary", 1.0
-
-       # --- 3. คำนวณ Level และดึงข้อมูลแต่งตัว ---
-        level = (total_exp // 500) + 1
+    # --- 3. คำนวณ Level ---
+    level = (total_exp // 500) + 1
         h_color = u.get('helmet_color', '#31333F')
         h_type = u.get('helmet_type', 'half')
         h_style = "border-radius: 50% 50% 20% 20%; height: 40px;" if h_type == 'full' else "border-radius: 50% 50% 0 0; height: 28px;"
