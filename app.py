@@ -233,44 +233,49 @@ elif st.session_state.page == 'game':
 
        # --- 3. คำนวณ Level และดึงข้อมูลแต่งตัว ---
         level = (total_exp // 500) + 1
-        h_color = u.get('helmet_color', '#31333F') # สีหมวกที่บันทึกไว้
-        h_type = u.get('helmet_type', 'half')      # ทรงหมวกที่บันทึกไว้
-        
-        # กำหนดความสูงหมวกตามทรง
-        h_style = "border-radius: 50% 50% 20% 20%; height: 45px;" if h_type == 'full' else "border-radius: 50% 50% 0 0; height: 30px;"
+        h_color = u.get('helmet_color', '#31333F')
+        h_type = u.get('helmet_type', 'half')
+        h_style = "border-radius: 50% 50% 20% 20%; height: 40px;" if h_type == 'full' else "border-radius: 50% 50% 0 0; height: 28px;"
 
-        # --- 4. แสดงผล Avatar และ ข้อมูลผู้เล่น ---
-        col_char, col_info = st.columns([0.35, 0.65])
+        # --- 4. แสดงผล Header แบบ Compact (ชิดซ้ายและเป็นระเบียบ) ---
+        # ปรับสัดส่วน Column ให้ Avatar เล็กลงและชิดซ้ายมากขึ้น
+        col_avatar, col_details = st.columns([0.25, 0.75])
         
-        with col_char:
-            # วาดตัวละครในวงกลมสีขาว
+        with col_avatar:
+            # Avatar ชิดซ้ายในวงกลม
             st.markdown(f"""
-                <div style="background: white; padding: 10px; border-radius: 50%; width: 90px; height: 90px; text-align: center; border: 3px solid #1877f2; margin: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
-                    <div style="position: relative; display: inline-block; font-size: 55px; margin-top: 5px;">
+                <div style="background: white; padding: 5px; border-radius: 50%; width: 75px; height: 75px; text-align: center; border: 2px solid #1877f2; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);">
+                    <div style="position: relative; display: inline-block; font-size: 45px; margin-top: 5px;">
                         👤
                         <div style="
                             position: absolute; 
-                            top: -3px; left: 50%; transform: translateX(-50%);
+                            top: -2px; left: 50%; transform: translateX(-50%);
                             background: {h_color}; 
-                            width: 45px; 
+                            width: 38px; 
                             {h_style}
                             border: 2px solid #333;
                             z-index: 10;
                         ">
-                            <div style="background: rgba(255,255,255,0.3); width: 70%; height: 5px; margin: 3px auto; border-radius: 3px;"></div>
+                            <div style="background: rgba(255,255,255,0.3); width: 70%; height: 4px; margin: 3px auto; border-radius: 2px;"></div>
                         </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 
-        with col_info:
-            st.markdown(f"<h3 style='margin-bottom:0;'>{u['fullname']}</h3>", unsafe_allow_html=True)
-            st.markdown(f"<p style='color:#666;'>Rank: <b>{rank}</b> | Level: <b>{level}</b></p>", unsafe_allow_html=True)
-        
-        # --- 5. แสดงแถบ EXP และเส้นคั่น (ต่อจากของเดิม) ---
-        st.write(f"EXP รวม: {total_exp}")
-        st.progress(min(progress, 1.0))
-        st.write("---")
+        with col_details:
+            # ข้อมูลชื่อและ Rank จัดวางแบบบรรทัดชิดกัน
+            st.markdown(f"""
+                <div style='margin-top: -5px;'>
+                    <h3 style='margin: 0; color: #003366;'>{u['fullname']}</h3>
+                    <p style='margin: 0; color: #666; font-size: 14px;'>🎖️ <b>{rank}</b> | Level {level}</p>
+                </div>
+            """, unsafe_allow_html=True)
+            
+            # ย้ายแถบ EXP มาไว้ในคอลัมน์นี้ด้วย เพื่อให้มันอยู่ชิดกับข้อมูลด้านบน
+            st.write(f"🔥 {total_exp} EXP")
+            st.progress(min(progress, 1.0))
+
+        st.write("---") # เส้นคั่นก่อนเริ่มปุ่มเมนู
         
 
         # สร้าง 2 คอลัมน์เพื่อให้ปุ่มวางคู่กันครับ
