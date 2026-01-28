@@ -205,18 +205,49 @@ elif st.session_state.page == 'forgot':
                 else: st.error("❌ ข้อมูลไม่ถูกต้อง")
         if st.button("ยกเลิก", use_container_width=True, type="secondary"): go_to('login')
 
-# 🎮 หน้ากิจกรรม (Player)
+# 🎮 หน้ากิจกรรมหลักของผู้เล่น (Player Dashboard)
+# =========================================================
 elif st.session_state.page == 'game':
     # --- 👮 1. ด่านตรวจสิทธิ์ (Security Guard) ---
     if st.session_state.user is None: 
-        go_to('login')
+        st.session_state.page = 'login'
+        st.rerun()
     
-    # ถ้า Admin หลงเข้ามาหน้าเด็ก ให้ดีดไปหน้า Admin ทันที
+    # ถ้า Admin หลงเข้ามาหน้าเด็ก ให้ดีดไปหน้า Dashboard ของครูทันที
     if st.session_state.user.get('role') == 'admin':
         st.session_state.page = 'admin_dashboard'
         st.rerun()
-        
-    # --- 2. Sync ข้อมูลล่าสุดจาก DB (ให้ EXP และชุดแต่งตัวตรงกันเสมอ) ---
+
+    # --- 2. Injection CSS (ปรับแต่ง UI ให้ดูพรีเมียมระดับเกม AAA) ---
+    st.markdown("""
+        <style>
+            /* แถบความพยายาม (Progress Bar) แบบ Neon */
+            .stProgress > div > div > div > div {
+                background-image: linear-gradient(to right, #00c6ff, #0072ff) !important;
+                height: 10px !important;
+                border-radius: 10px;
+            }
+            
+            /* ปุ่มเมนูหลักสไตล์ Glassmorphism */
+            div[data-testid="stHorizontalBlock"] .stButton > button {
+                border-radius: 18px !important;
+                border: 1px solid rgba(255,255,255,0.3) !important;
+                background: rgba(255, 255, 255, 0.8) !important;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.08) !important;
+                height: 65px !important;
+                font-weight: bold !important;
+                color: #003366 !important;
+                transition: all 0.3s ease !important;
+            }
+            div[data-testid="stHorizontalBlock"] .stButton > button:hover {
+                transform: translateY(-3px) !important;
+                box-shadow: 0 8px 25px rgba(24, 119, 242, 0.2) !important;
+                border: 1px solid #1877f2 !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # --- 3. Sync ข้อมูลล่าสุดจากฐานข้อมูล (เพื่อให้ EXP และชุดที่แต่งตรงกัน 100%) ---
     try:
         u_res = supabase.table("users").select("*").eq("username", st.session_state.user['username']).single().execute()
         if u_res.data:
@@ -226,67 +257,76 @@ elif st.session_state.page == 'game':
 
     u = st.session_state.user 
 
-    if st.session_state.selected_mission is None:
-        # --- 3. คำนวณ EXP และ Rank ---
-        total_exp = u.get('total_exp', 0)
-        level = (total_exp // 500) + 1
-        
-        if total_exp <= 100: rank, progress = "Beginner", total_exp / 100
-        elif total_exp <= 300: rank, progress = "Pro", (total_exp - 100) / 200
-        elif total_exp <= 600: rank, progress = "Expert", (total_exp - 300) / 300
-        elif total_exp <= 999: rank, progress = "Guardian", (total_exp - 600) / 399
-        else: rank, progress = "Legendary", 1.0
+    # --- 4. ตรรกะการคำนวณ Rank & Level ---
+    total_exp = u.get('total_exp', 0)
+    level = (total_exp // 500) + 1
+    
+    # กำหนด Rank และสีประจำตำแหน่ง
+    if total_exp <= 100: rank, r_col = "Beginner", "#8e9eab"
+    elif total_exp <= 300: rank, r_col = "Pro", "#1877f2"
+    elif total_exp <= 600: rank, r_col = "Expert", "#9c27b0"
+    elif total_exp <= 999: rank, r_col = "Guardian", "#ff9800"
+    else: rank, r_col = "Legendary", "#ff4b4b"
 
-        # --- 4. แสดงผล Header (Avatar ชุดเต็ม + ข้อมูล Rank) ---
-        col_av, col_txt = st.columns([0.4, 0.6])
+    # --- [ ส่วนที่ 1: หน้าเมนูหลัก ] ---
+    if st.session_state.selected_mission is None:
         
-        with col_av:
-            # วาดรูปตัวละคร (Clean Style: ไม่มีกรอบ)
-            h_color = u.get('helmet_color', '#31333F')
-            h_type = u.get('helmet_type', 'half')
-            s_color = u.get('shirt_color', '#FFFFFF')
-            f_color = u.get('shoes_color', '#333333')
-            b_color = u.get('bike_color', '#1877f2')
-            h_style = "border-radius: 50% 50% 20% 20%; height: 28px;" if h_type == 'full' else "border-radius: 50% 50% 0 0; height: 18px;"
-            
-            st.markdown(f"""
-                <div style="display: flex; justify-content: center; align-items: flex-end; gap: 8px;">
-                    <div style="position: relative; font-size: 50px;">
-                        👤
-                        <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); background: {h_color}; width: 38px; {h_style} border: 1.5px solid #333; z-index: 10;"></div>
-                        <div style="position: absolute; top: 32px; left: 50%; transform: translateX(-50%); background: {s_color}; width: 26px; height: 18px; border: 1.5px solid #333; border-radius: 3px; z-index: 5;"></div>
-                        <div style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px;">
-                            <div style="background: {f_color}; width: 9px; height: 5px; border: 1px solid #333; border-radius: 1px;"></div>
-                            <div style="background: {f_color}; width: 9px; height: 5px; border: 1px solid #333; border-radius: 1px;"></div>
+        # --- 5. 💎 Premium Profile Card (ไม่มีกรอบเถอะทะ) ---
+        # ดึงสีไอเทมที่แต่งไว้
+        hc, ht = u.get('helmet_color', '#31333F'), u.get('helmet_type', 'half')
+        sc, fc, bc = u.get('shirt_color', '#FFFFFF'), u.get('shoes_color', '#333333'), u.get('bike_color', '#1877f2')
+        h_css = "border-radius:50% 50% 20% 20%; height:32px;" if ht=='full' else "border-radius:50% 50% 0 0; height:22px;"
+
+        st.markdown(f"""
+            <div style="background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); padding: 30px; border-radius: 30px; margin-bottom: 25px; border: 1px solid rgba(0,0,0,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+                <div style="display: flex; align-items: center; gap: 25px;">
+                    <div style="background: white; padding: 20px; border-radius: 25px; box-shadow: 0 5px 15px rgba(0,0,0,0.03);">
+                        <div style="display: flex; justify-content: center; align-items: flex-end; gap: 10px;">
+                            <div style="position: relative; font-size: 60px;">
+                                👤
+                                <div style="position: absolute; top: -3px; left: 50%; transform: translateX(-50%); background: {hc}; width: 48px; {h_css} border: 2px solid #333; z-index: 10;"></div>
+                                <div style="position: absolute; top: 40px; left: 50%; transform: translateX(-50%); background: {sc}; width: 35px; height: 25px; border: 2px solid #333; border-radius: 4px; z-index: 5;"></div>
+                                <div style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px;">
+                                    <div style="background: {fc}; width: 12px; height: 6px; border: 1px solid #333; border-radius: 2px;"></div>
+                                    <div style="background: {fc}; width: 12px; height: 6px; border: 1px solid #333; border-radius: 2px;"></div>
+                                </div>
+                            </div>
+                            <div style="font-size: 55px; position: relative;">
+                                🏍️
+                                <div style="position: absolute; bottom: 10px; left: 10%; width: 80%; height: 8px; background: {bc}; border-radius: 10px; z-index: -1; filter: blur(2px); opacity: 0.7;"></div>
+                            </div>
                         </div>
                     </div>
-                    <div style="font-size: 45px; position: relative;">
-                        🏍️
-                        <div style="position: absolute; bottom: 8px; left: 10%; width: 80%; height: 6px; background: {b_color}; border-radius: 5px; z-index: -1; filter: blur(1px);"></div>
+                    <div style="flex-grow: 1;">
+                        <span style="background: {r_col}; color: white; padding: 4px 15px; border-radius: 50px; font-size: 12px; font-weight: bold; letter-spacing: 1px;">{rank}</span>
+                        <h2 style="margin: 10px 0 5px 0; color: #001f3f; font-size: 28px;">{u['fullname']}</h2>
+                        <div style="color: #666; font-size: 15px;">
+                            ⭐ <b>Level {level}</b> | 🔥 <b>{total_exp}</b> EXP
+                        </div>
                     </div>
                 </div>
-            """, unsafe_allow_html=True)
-
-        with col_txt:
-            st.markdown(f"### {rank}")
-            st.markdown(f"ยินดีต้อนรับ **{u['fullname']}**")
-            st.write(f"🔥 {total_exp} EXP")
-            st.progress(min(progress, 1.0))
-
-        st.write("---")
+            </div>
+        """, unsafe_allow_html=True)
         
-        # --- 5. ปุ่มเมนูหลัก ---
-        c_game, c_dress = st.columns(2)
-        with c_game:
-            if st.button("🎮 เล่นมินิเกม", use_container_width=True, key="btn_play_mini"):
+        # แสดงแถบ Progress ไปยังเลเวลถัดไป
+        next_lv_progress = (total_exp % 500) / 500
+        st.progress(min(next_lv_progress, 1.0))
+        st.markdown(f"<p style='text-align:right; font-size:12px; color:#888; margin-top:-10px;'>อีก {500 - (total_exp % 500)} EXP เพื่ออัปเลเวล</p>", unsafe_allow_html=True)
+
+        # --- 6. ปุ่มเมนูหลัก ---
+        st.write(" ")
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            if st.button("🎮 เล่นมินิเกม", key="main_play_btn", use_container_width=True):
                 st.session_state.page = 'bonus_game'; st.rerun()
-        with c_dress:
-            if st.button("👕 แต่งตัวละคร", use_container_width=True, key="btn_go_dress"):
+        with col_m2:
+            if st.button("👕 แต่งตัวละคร", key="main_dress_btn", use_container_width=True):
                 st.session_state.page = 'dressing_room'; st.rerun()
 
         st.write("---")
 
-        # --- 6. รายการภารกิจ (วนลูปแค่รอบเดียว ป้องกัน Key ซ้ำ) ---
+        # --- 7. รายการภารกิจ (ฉบับแก้ Duplicate Key) ---
+        st.markdown("<h4 style='color: #003366; margin-bottom: 15px;'>📍 ภารกิจประจาวัน</h4>", unsafe_allow_html=True)
         try:
             missions = supabase.table("missions").select("*").eq("is_active", True).execute().data
             today = datetime.now().strftime("%Y-%m-%d")
@@ -296,130 +336,69 @@ elif st.session_state.page == 'game':
             for m in missions:
                 m_sub = done_dict.get(m['id'])
                 is_done = m['id'] in done_dict
-                c1, c2 = st.columns([0.7, 0.3])
-                with c1:
-                    # ใช้ Key แบบ Unique เพื่อป้องกัน Error
-                    if st.button(f"📍 {m['title']}", key=f"mission_btn_{m['id']}"):
-                        st.session_state.selected_mission = m['id']
-                        st.rerun()
-                with c2:
-                    if m_sub and m_sub.get('status') == 'approved':
-                        color, text = "#42b72a", f"+{m_sub['points']} EXP"
-                    elif is_done:
-                        color, text = "#f39c12", "รอตรวจ"
-                    else:
-                        color, text = "#888", "⭕ ยังไม่ส่ง"
-                    st.markdown(f"<div style='color:{color}; font-weight:bold; padding-top:10px; text-align:right;'>{text}</div>", unsafe_allow_html=True)
+                
+                with st.container():
+                    c1, c2 = st.columns([0.7, 0.3])
+                    with c1:
+                        # ใช้ Key ที่ไม่ซ้ำแน่นอน
+                        if st.button(f"🏁 {m['title']}", key=f"mission_list_{m['id']}", use_container_width=True):
+                            st.session_state.selected_mission = m['id']; st.rerun()
+                    with c2:
+                        if m_sub and m_sub.get('status') == 'approved':
+                            color, text = "#42b72a", f"+{m_sub['points']} EXP"
+                        elif is_done:
+                            color, text = "#f39c12", "รอตรวจสอบ"
+                        else:
+                            color, text = "#888", "ว่าง"
+                        st.markdown(f"<div style='text-align: center; color: {color}; font-weight: bold; font-size: 14px; line-height: 60px;'>{text}</div>", unsafe_allow_html=True)
         except:
             st.error("ไม่สามารถโหลดภารกิจได้")
 
-        # --- 7. ปุ่มออกจากระบบ (ต้องเยื้องเข้ามาให้ตรงกับ elif page == 'game') ---
-        st.write("---")
-        if st.button("🚪 ออกจากระบบ", use_container_width=True, key="logout_btn_player"):
-            st.session_state.user = None
-            st.query_params.clear() 
-            st.session_state.page = 'login'
-            st.rerun()
+        # --- 8. ปุ่มออกจากระบบ (อยู่ท้ายสุดของหน้าผู้เล่น) ---
+        st.write(" ")
+        if st.button("🚪 ออกจากระบบ", key="logout_player_final", use_container_width=True):
+            st.session_state.user = None; st.query_params.clear(); st.session_state.page = 'login'; st.rerun()
 
-    # --- 8. หน้าทำภารกิจ (เมื่อเลือกภารกิจแล้ว) ---
+    # --- [ ส่วนที่ 2: หน้าส่งงาน/ทำภารกิจ ] ---
     else:
         m_id = st.session_state.selected_mission
         m_data = supabase.table("missions").select("*").eq("id", m_id).single().execute().data
-        st.markdown(f"## {m_data['title']}")
-        if st.button("⬅️ ย้อนกลับ", key="back_to_game_home"): 
+        
+        st.markdown(f"<h2 style='color:#1877f2;'>{m_data['title']}</h2>", unsafe_allow_html=True)
+        if st.button("⬅️ ย้อนกลับ", key="back_from_m_screen"): 
             st.session_state.selected_mission = None; st.rerun()
         
-        st.info(f"💡 {m_data.get('description', 'ถ่ายรูปเพื่อยืนยันภารกิจ')}")
-        f = st.file_uploader("📸 แนบรูปถ่ายหลักฐาน", type=['jpg','png','jpeg'], key="up_mission")
+        st.info(f"💡 **คำแนะนำ:** {m_data.get('description', 'ถ่ายรูปเพื่อยืนยันภารกิจ')}")
+        
+        f = st.file_uploader("📸 อัปโหลดรูปถ่ายหลักฐาน", type=['jpg','png','jpeg'], key="uploader_final")
         
         if f:
-            if st.button("🚀 ยืนยันส่งภารกิจ", type="primary", use_container_width=True, key="btn_confirm_submit"):
+            if st.button("🚀 ยืนยันส่งภารกิจ", type="primary", use_container_width=True, key="submit_mission_btn"):
                 with st.spinner("กำลังส่งภารกิจ..."):
-                    # ... (โค้ดส่ง Google Script และ Insert Supabase ของพี่ตามเดิม) ...
-                    # บรรทัดนี้ใส่โค้ดเดิมของพี่ได้เลยครับ
-                    pass
-
-# ---------------------------------------------------------
-# 3. หน้า Admin Dashboard (Zone แยกขาดจากผู้เล่น)
-# ---------------------------------------------------------
-elif st.session_state.page == 'admin_dashboard':
-    if st.session_state.user is None or st.session_state.user.get('role') != 'admin': 
-        st.session_state.page = 'login'; st.rerun()
-    
-    st.title("👨‍🏫 ระบบ Guild Master")
-    st.markdown(f"Game Master: **{st.session_state.user['fullname']}**")
-    st.write("---")
-
-    # แยกส่วนการทำงานเป็น 2 Tabs
-    tab1, tab2 = st.tabs(["📥 ตรวจงานและให้คะแนน", "📝 จัดการภารกิจ"])
-
-    # ---------------------------------------------------------
-    # TAB 1: ตรวจงานนักเรียน (Update EXP ทันที + ปุ่ม Refresh)
-    # ---------------------------------------------------------
-    with tab1:
-        # ส่วนหัวและปุ่มดึงข้อมูลใหม่
-        col_title, col_ref = st.columns([0.7, 0.3])
-        with col_title:
-            st.subheader("ภารกิจที่รอตรวจสอบ")
-        with col_ref:
-            if st.button("🔄 ดึงข้อมูลล่าสุด", use_container_width=True):
-                st.rerun()
-
-        try:
-            # ดึงข้อมูลงานที่ค้างตรวจ (Status = pending) เรียงจากใหม่ไปเก่า
-            pending_subs = supabase.table("submissions") \
-                .select("*, users(username, fullname, student_id, total_exp), missions(title)") \
-                .eq("status", "pending") \
-                .order("created_at", desc=True) \
-                .execute().data
-        except Exception as e:
-            st.error(f"❌ ไม่สามารถดึงข้อมูลได้: {e}")
-            pending_subs = []
-
-        if not pending_subs:
-            st.info("✨ ภารกิจตรวจสอบครบแล้ว")
-        else:
-            st.write(f"พบทั้งหมด {len(pending_subs)} รายการ")
-            for sub in pending_subs:
-                with st.expander(f"📌 {sub['users']['fullname']} (รหัส: {sub['users']['student_id']})"):
-                    c1, c2 = st.columns([0.6, 0.4])
-                    
-                    with c1:
-                        # 🖼️ ดึงรูปจาก Drive 2TB ผ่าน File ID
-                        file_id = sub.get('image_url')
-                        if file_id:
-                            st.image(f"https://drive.google.com/thumbnail?id={file_id}&sz=w800", caption="หลักฐานการส่งงาน")
-                        else:
-                            st.warning("⚠️ ไม่พบ ID รูปภาพในระบบ")
-                        st.caption(f"ส่งเมื่อ: {sub['created_at']}")
-
-                    with c2:
-                        st.markdown("### 🏆 ให้คะแนน EXP")
-                        st.write(f"**ภารกิจ:** {sub['missions']['title']}")
-                        score = st.number_input(f"ระบุคะแนน", 0, 1000, 10, key=f"score_{sub['id']}")
+                    try:
+                        import requests, base64
+                        today = datetime.now().strftime("%Y-%m-%d")
+                        filename = f"{u['username']}_m{m_id}_{today}.jpg"
+                        base64_img = base64.b64encode(f.getvalue()).decode('utf-8')
                         
-                        if st.button("✅ ยืนยันและให้คะแนน", key=f"btn_{sub['id']}", use_container_width=True):
-                            try:
-                                with st.spinner("กำลังอัปเดตคะแนน..."):
-                                    # จังหวะที่ 1: อัปเดตตาราง submissions เป็น approved
-                                    supabase.table("submissions").update({
-                                        "points": score,
-                                        "status": "approved"
-                                    }).eq("id", sub['id']).execute()
-                                    
-                                    # จังหวะที่ 2: บวกคะแนนเข้า total_exp ของเด็กในตาราง users
-                                    current_total = sub['users'].get('total_exp', 0)
-                                    new_total = (current_total if current_total else 0) + score
-                                    
-                                    supabase.table("users").update({
-                                        "total_exp": new_total
-                                    }).eq("username", sub['user_username']).execute()
-                                    
-                                    st.success(f"อัปเดตเรียบร้อย! {sub['users']['fullname']} ได้แต้มสะสม {new_total}")
-                                    time.sleep(1)
-                                    st.rerun()
-                            except Exception as e:
-                                st.error(f"เกิดข้อผิดพลาด: {e}")
+                        web_app_url = "https://script.google.com/macros/s/AKfycbyizcX69XMBeDCp1oyGR3hLuJ2i_n4YyBFhukyRT8399-R4FePPLS4kA5CwYrl1-yne/exec"
+                        payload = {"filename": filename, "mimetype": f.type, "base64": base64_img}
+                        
+                        response = requests.post(web_app_url, json=payload)
+                        result = response.json()
+
+                        if result.get('status') == 'success':
+                            supabase.table("submissions").insert({
+                                "user_username": u['username'], "mission_id": m_id,
+                                "status": "pending", "points": 0, "image_url": result['fileId']
+                            }).execute()
+                            st.success("🎉 ส่งงานสำเร็จ! รอ Game Master ตรวจสอบ")
+                            time.sleep(2)
+                            st.session_state.selected_mission = None; st.rerun()
+                        else:
+                            st.error(f"Google Script Error: {result.get('message')}")
+                    except Exception as e:
+                        st.error(f"ระบบขัดข้อง: {e}")
 
     # ---------------------------------------------------------
     # TAB 2: จัดการภารกิจ (สร้าง/ดู/ลบ)
