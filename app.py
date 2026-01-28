@@ -527,19 +527,19 @@ elif st.session_state.page == 'admin_dashboard':
         st.query_params.clear()
         go_to('login')# =========================================================
 # =========================================================
-# 🎮 หน้า BONUS GAME: มอไซค์แนวตั้ง + ระบบสุ่มอัตโนมัติ (Version ชัวร์ที่สุด)
+# 🎮 หน้า BONUS GAME: มอไซค์แนวตั้ง + ระบบสุ่ม x3 (Fixed Redirect)
 # =========================================================
 elif st.session_state.page == 'bonus_game':
     u = st.session_state.user
     today_str = datetime.now().strftime("%Y-%m-%d")
     
-    # --- 1. ตรวจสอบโควตา (ส่ง 1 งาน = เล่นได้ 3 ครั้ง) ---
+    # --- 1. ตรวจสอบโควตารายวัน (1 งาน = 3 สิทธิ์) ---
     try:
         m_today = supabase.table("submissions").select("id", count="exact")\
             .eq("user_username", u['username'])\
             .gte("created_at", today_str).execute().count
         
-        # ตรวจสอบเพื่อรีเซ็ตยอดเล่นเมื่อขึ้นวันใหม่
+        # รีเซ็ตยอดเล่นเมื่อขึ้นวันใหม่
         db_last_date = str(u.get('last_game_date'))
         if db_last_date != today_str:
             daily_played = 0
@@ -555,45 +555,50 @@ elif st.session_state.page == 'bonus_game':
 
     st.markdown("<h2 style='text-align: center; color:#1877f2;'>🏍️ Moto Gacha x3</h2>", unsafe_allow_html=True)
 
-    # --- 🆕 2. ระบบ "ดักจับแต้ม" และ "สุ่มรางวัล" (ทำงานทันทีที่มีแต้มส่งมา) ---
-    # ดึงค่าจาก URL Parameters
-    params = st.query_params.to_dict()
-    if "score" in params and available_quota > 0:
-        final_score = int(params["score"])
-        
-        # 🛡️ ล้าง URL ทันทีเพื่อป้องกันการโกง/สุ่มซ้ำ
-        st.query_params.clear()
-        st.query_params["u"] = u['username']
-        st.query_params["page"] = "bonus_game"
-
-        # --- 🎯 Logic สุ่มรางวัล: เล่นจบสุ่ม 1 ครั้งเสมอ (ยิ่งคะแนนสูง ยิ่งดวงดี) ---
-        pool = [5, 10, 20, 50, 100]
-        if final_score < 500:
-            weights = [65, 25, 7, 2, 1]  # แต้มรั้งท้าย: เน้น 5-10 EXP
-        elif final_score < 1500:
-            weights = [30, 40, 20, 7, 3]  # แต้มปานกลาง: 20 EXP เริ่มออกบ่อย
-        else:
-            weights = [10, 15, 35, 25, 15] # แต้มเทพ (1500+): โอกาสได้ 50-100 EXP สูงถึง 40%!
-
-        win_exp = random.choices(pool, weights=weights, k=1)[0]
-        
-        # บันทึกคะแนนลง Database
+    # --- 🆕 2. ระบบ "ดักจับแต้ม" (ย้ายมาดักก่อนโชว์ตารางโควตา) ---
+    # ใช้ st.query_params ตรงๆ เพื่อดึงค่าที่ส่งมาจาก JavaScript
+    if "score" in st.query_params:
         try:
-            new_exp = (u.get('total_exp', 0)) + win_exp
-            supabase.table("users").update({
-                "total_exp": new_exp,
-                "daily_played_count": daily_played + 1
-            }).eq("username", u['username']).execute()
+            final_score = int(st.query_params["score"])
             
-            st.session_state.user['total_exp'] = new_exp
-            st.session_state.user['daily_played_count'] = daily_played + 1
-            
-            st.balloons()
-            st.success(f"🏁 เกมจบ! คุณทำได้ {final_score} แต้ม สุ่มรางวัลได้: **+{win_exp} EXP**")
-            time.sleep(2)
-            st.rerun()
+            # 🛡️ แก้ไขตรงนี้: ลบแค่ score ออก แต่เก็บ u และ page ไว้!
+            new_params = st.query_params.to_dict()
+            if "score" in new_params: del new_params["score"]
+            st.query_params.update(new_params)
+
+            if available_quota > 0:
+                # --- 🎯 Logic สุ่มรางวัล: สุ่ม 1 ครั้งเสมอ (โอกาสตามความเก่ง) ---
+                pool = [5, 10, 20, 50, 100]
+                if final_score < 500:
+                    weights = [65, 25, 7, 2, 1]
+                elif final_score < 1500:
+                    weights = [30, 40, 20, 7, 3]
+                else:
+                    weights = [10, 20, 35, 25, 10]
+
+                win_exp = random.choices(pool, weights=weights, k=1)[0]
+                
+                # บันทึกคะแนนลง Database
+                current_exp = u.get('total_exp', 0)
+                new_total_exp = current_exp + win_exp
+                new_played_count = daily_played + 1
+                
+                supabase.table("users").update({
+                    "total_exp": new_total_exp,
+                    "daily_played_count": new_played_count
+                }).eq("username", u['username']).execute()
+                
+                # อัปเดต Session State ทันที
+                st.session_state.user['total_exp'] = new_total_exp
+                st.session_state.user['daily_played_count'] = new_played_count
+                
+                # เอฟเฟกต์โชว์ความเฮง
+                st.balloons()
+                st.success(f"🏁 เกมจบ! คุณทำได้ {final_score} แต้ม สุ่มได้: **+{win_exp} EXP**")
+                time.sleep(2)
+                st.rerun()
         except Exception as e:
-            st.error(f"เกิดข้อผิดพลาดในการบันทึก: {e}")
+            st.error(f"ระบบสุ่มขัดข้อง: {e}")
 
     # --- 3. แสดงผลหน้าจอ UI ---
     st.markdown(f"""
@@ -604,7 +609,7 @@ elif st.session_state.page == 'bonus_game':
     """, unsafe_allow_html=True)
 
     if available_quota > 0:
-        # --- 4. ตัวเกมแนวตั้ง (แก้ระบบส่งค่าให้ทะลุ Iframe) ---
+        # --- 4. ตัวเกมแนวตั้ง (แก้ JS ให้ส่งค่าได้ชัวร์ขึ้น) ---
         game_html = f"""
         <!DOCTYPE html>
         <html>
@@ -627,8 +632,8 @@ elif st.session_state.page == 'bonus_game':
                 <div id="game-over">
                     <h2 style="color:#d9534f; margin:0;">💥 ชนหลุม!</h2>
                     <p id="final-display" style="font-size:24px; font-weight:bold; margin:15px 0; color:#333;"></p>
-                    <button onclick="sendToStreamlit()" style="background:#28a745; color:white;">🎁 ส่งคะแนนสุ่มรางวัล</button>
-                    <button onclick="resetGame()" style="background:#6c757d; color:white;">🔄 เล่นใหม่ (ฝึกซ้อม)</button>
+                    <button onclick="sendScore()" style="background:#28a745; color:white;">🎁 ส่งคะแนนสุ่มรางวัล</button>
+                    <button onclick="resetGame()" style="background:#6c757d; color:white;">🔄 เล่นใหม่</button>
                 </div>
             </div>
             <script>
@@ -678,12 +683,11 @@ elif st.session_state.page == 'bonus_game':
                     if (dx < -30) move('L'); if (dx > 30) move('R');
                 }});
 
-                // --- 🆕 ฟังก์ชันส่งแต้มเข้าหน้าจอหลัก (เจาะจงพารามิเตอร์) ---
-                function sendToStreamlit() {{
-                    const finalS = Math.floor(score);
+                function sendScore() {{
+                    const s = Math.floor(score);
                     const currentUrl = new URL(window.parent.location.href);
-                    currentUrl.searchParams.set('score', finalS);
-                    // บังคับเปลี่ยน URL ของหน้าหลักเพื่อให้ Python ดักจับแต้มได้ทันที
+                    currentUrl.searchParams.set('score', s);
+                    // บังคับให้หน้าหลักเปลี่ยน URL เพื่อให้ Python จับค่าได้
                     window.parent.location.href = currentUrl.href;
                 }}
                 animate();
@@ -694,7 +698,7 @@ elif st.session_state.page == 'bonus_game':
         import streamlit.components.v1 as components
         components.html(game_html, height=520)
     else:
-        st.warning("🚫 โควตาวันนี้หมดแล้ว! ส่งงานเพิ่มเพื่อรับสิทธิ์นะ (ส่ง 1 งาน = เล่นได้ 3 ครั้ง)")
+        st.warning("🚫 โควตาวันนี้หมดแล้ว! ส่งงานเพิ่มเพื่อรับสิทธิ์เล่น (1 งาน = 3 สิทธิ์)")
 
     if st.button("⬅️ กลับหน้าหลัก", use_container_width=True):
         st.session_state.page = 'game'
