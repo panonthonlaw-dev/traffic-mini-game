@@ -527,7 +527,7 @@ elif st.session_state.page == 'admin_dashboard':
         st.query_params.clear()
         go_to('login')# =========================================================
 # =========================================================
-# 🎮 หน้า BONUS GAME: มอไซค์วิบากแนวตั้ง (Subway Style) + Gacha
+# 🎮 หน้า BONUS GAME: มอไซค์แนวตั้ง + ระบบ 2 ปุ่มตอนจบเกม
 # =========================================================
 elif st.session_state.page == 'bonus_game':
     u = st.session_state.user
@@ -551,11 +551,11 @@ elif st.session_state.page == 'bonus_game':
     except:
         max_quota, daily_played, available_quota = 0, 0, 0
 
-    st.markdown("<h2 style='text-align: center; color:#1877f2;'>🏍️ Moto Rider: หลบหลุมล่าหมวก</h2>", unsafe_allow_html=True)
-    st.info(f"🎫 โควตาวันนี้: {daily_played}/{max_quota} (เหลือ {max(0, available_quota)} ครั้ง)")
+    st.markdown("<h2 style='text-align: center; color:#1877f2;'>🏍️ Moto Rider</h2>", unsafe_allow_html=True)
+    st.info(f"🎫 โควตาสุ่มวันนี้: {daily_played}/{max_quota} (คงเหลือ {max(0, available_quota)} ครั้ง)")
 
     if available_quota > 0:
-        # --- 2. ตัวเกมแนวตั้ง HTML5 Canvas ---
+        # --- 2. ตัวเกมแนวตั้ง (เพิ่มปุ่มเล่นใหม่) ---
         game_html = f"""
         <!DOCTYPE html>
         <html>
@@ -564,110 +564,92 @@ elif st.session_state.page == 'bonus_game':
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
             <style>
                 body {{ margin: 0; display: flex; flex-direction: column; align-items: center; background: transparent; touch-action: none; font-family: sans-serif; }}
-                /* ปรับ Canvas เป็นแนวตั้ง */
-                #game-container {{ position: relative; width: 320px; height: 480px; background: #555; border: 3px solid #1877f2; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }}
-                canvas {{ display: block; width: 100%; height: 100%; background: url('https://www.transparenttextures.com/patterns/asfalt-dark.png'); }}
-                #ui-score {{ position: absolute; top: 10px; left: 10px;color: white; font-size: 18px; font-weight: bold; text-shadow: 1px 1px 2px black; z-index:10; }}
-                #game-over {{ display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255,255,255,0.95); padding: 20px; border-radius: 15px; text-align: center; border: 3px solid #d9534f; z-index: 100; width: 80%; }}
-                button {{ padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px; margin-top:10px; width:100%; }}
-                .lane-marker {{ position: absolute; top:0; height:100%; width:2px; background: rgba(255,255,255,0.3); }}
+                #game-container {{ position: relative; width: 320px; height: 480px; background: #444; border: 3px solid #1877f2; border-radius: 15px; overflow: hidden; }}
+                canvas {{ display: block; width: 100%; height: 100%; }}
+                #ui-score {{ position: absolute; top: 10px; left: 10px; color: white; font-size: 20px; font-weight: bold; text-shadow: 2px 2px black; z-index:10; }}
+                #game-over {{ display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 20px; text-align: center; border: 4px solid #1877f2; z-index: 100; width: 80%; box-shadow: 0 0 20px rgba(0,0,0,0.5); }}
+                .btn-submit {{ padding: 12px; background: #28a745; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 10px; font-size: 16px; }}
+                .btn-retry {{ padding: 12px; background: #6c757d; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; width: 100%; font-size: 16px; }}
+                .lane {{ position: absolute; top:0; height:100%; width:2px; background: rgba(255,255,255,0.2); }}
             </style>
         </head>
         <body>
             <div id="game-container">
                 <div id="ui-score">Score: 0</div>
-                <div class="lane-marker" style="left: 106px;"></div>
-                <div class="lane-marker" style="left: 213px;"></div>
-                
+                <div class="lane" style="left: 106px;"></div>
+                <div class="lane" style="left: 213px;"></div>
                 <canvas id="gameCanvas" width="320" height="480"></canvas>
-                
                 <div id="game-over">
                     <h2 style="color:#d9534f; margin:0;">💥 ชนหลุมซะแล้ว!</h2>
-                    <p id="final-display" style="font-size:20px; font-weight:bold; margin:15px 0; color:#333;"></p>
-                    <button onclick="parentSubmit()">🎁 ยืนยันคะแนนสุ่มรางวัล</button>
+                    <p id="final-display" style="font-size:24px; font-weight:bold; margin:15px 0;"></p>
+                    <button class="btn-submit" onclick="parentSubmit()">🎁 ยืนยันคะแนนสุ่มรางวัล</button>
+                    <button class="btn-retry" onclick="resetGame()">🔄 เล่นใหม่อีกครั้ง</button>
                 </div>
             </div>
             <script>
                 const canvas = document.getElementById('gameCanvas');
                 const ctx = canvas.getContext('2d');
-                const uiScore = document.getElementById('ui-score');
-                
-                let score = 0, isGameOver = false, frame = 0, speed = 3;
-                // เลน: 0=ซ้าย, 1=กลาง, 2=ขวา (ตำแหน่ง X กลางเลน: 53, 160, 266)
+                let score = 0, isGameOver = false, frame = 0, speed = 3.5;
                 const lanes = [53, 160, 266];
-                let currentLane = 1; // เริ่มที่เลนกลาง
-                let playerY = 400;
-                
-                let items = []; // เก็บทั้งหลุมและหมวก
+                let currentLane = 1, playerY = 400, items = [];
+
+                function resetGame() {{
+                    score = 0; isGameOver = false; frame = 0; speed = 3.5; currentLane = 1; items = [];
+                    document.getElementById('game-over').style.display = 'none';
+                    animate();
+                }}
 
                 function animate() {{
                     if (isGameOver) return;
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    frame++; score += 0.1; speed += 0.001; // เพิ่มความเร็วทีละนิด
+                    frame++; score += 0.15; speed += 0.0015;
 
-                    // --- วาดตัวละคร (🏍️) ---
                     ctx.font = "50px Arial"; ctx.textAlign = "center";
                     ctx.fillText("🏍️", lanes[currentLane], playerY);
-                    
-                    // --- สุ่มเกิดไอเทม (หลุม/หมวก) ---
-                    if (frame % Math.floor(60 - speed*2) === 0) {{
-                        let type = Math.random() > 0.7 ? 'helmet' : 'pothole'; // โอกาสเจอหลุมเยอะกว่า
-                        let lane = Math.floor(Math.random() * 3);
-                        items.push({{ x: lanes[lane], y: -50, type: type, lane: lane }});
+
+                    if (frame % Math.floor(70 - speed*2) === 0) {{
+                        let type = Math.random() > 0.75 ? 'helmet' : 'pothole';
+                        items.push({{ x: lanes[Math.floor(Math.random()*3)], y: -50, type: type }});
                     }}
 
-                    // --- จัดการไอเทม ---
                     items.forEach((item, i) => {{
                         item.y += speed;
+                        let emoji = item.type === 'pothole' ? "🕳️" : "🪖";
+                        ctx.font = "45px Arial"; ctx.fillText(emoji, item.x, item.y);
                         
-                        if (item.type === 'pothole') {{
-                            ctx.font = "40px Arial"; ctx.fillText("🕳️", item.x, item.y);
-                            // เช็กชนหลุม (Hitbox)
-                            if (item.lane === currentLane && item.y > playerY - 30 && item.y < playerY + 20) {{
-                                isGameOver = true;
-                            }}
-                        }} else {{
-                            ctx.font = "40px Arial"; ctx.fillText("🪖", item.x, item.y);
-                            // เช็กเก็บหมวก
-                            if (item.lane === currentLane && item.y > playerY - 40 && item.y < playerY) {{
-                                score += 50; // เก็บหมวกได้ 50 แต้ม
-                                items.splice(i, 1);
-                                return; // ลบแล้วออกจาก loop รอบนี้
-                            }}
+                        let laneIdx = lanes.indexOf(item.x);
+                        if (laneIdx === currentLane && item.y > playerY - 35 && item.y < playerY + 15) {{
+                            if (item.type === 'pothole') isGameOver = true;
+                            else {{ score += 50; items.splice(i, 1); }}
                         }}
-                        
-                        // ลบไอเทมที่หลุดจอ
-                        if (item.y > canvas.height + 50) items.splice(i, 1);
+                        if (item.y > 550) items.splice(i, 1);
                     }});
 
-                    uiScore.innerHTML = "Score: " + Math.floor(score);
-
+                    document.getElementById('ui-score').innerHTML = "Score: " + Math.floor(score);
                     if (isGameOver) {{
                         document.getElementById('game-over').style.display = 'block';
                         document.getElementById('final-display').innerHTML = Math.floor(score) + " แต้ม";
                     }} else requestAnimationFrame(animate);
                 }}
 
-                // --- การควบคุม (Keyboard & Touch Swipe) ---
-                function moveLeft() {{ if (currentLane > 0 && !isGameOver) currentLane--; }}
-                function moveRight() {{ if (currentLane < 2 && !isGameOver) currentLane++; }}
+                function move(dir) {{ 
+                    if (!isGameOver) {{
+                        if (dir === 'L' && currentLane > 0) currentLane--;
+                        if (dir === 'R' && currentLane < 2) currentLane++;
+                    }}
+                }}
 
-                // Keyboard (ลูกศรซ้าย/ขวา หรือ A/D)
-                window.addEventListener('keydown', (e) => {{
-                    if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft();
-                    if (e.key === 'ArrowRight' || e.key === 'd') moveRight();
+                window.addEventListener('keydown', e => {{ 
+                    if (e.key === 'ArrowLeft') move('L'); if (e.key === 'ArrowRight') move('R'); 
                 }});
 
-                // Touch Swipe (สำหรับมือถือ)
-                let touchStartX = 0;
-                window.addEventListener('touchstart', e => touchStartX = e.changedTouches[0].screenX);
+                let startX = 0;
+                window.addEventListener('touchstart', e => startX = e.touches[0].clientX);
                 window.addEventListener('touchend', e => {{
-                    let touchEndX = e.changedTouches[0].screenX;
-                    if (touchEndX < touchStartX - 30) moveLeft(); // ปัดซ้าย
-                    if (touchEndX > touchStartX + 30) moveRight(); // ปัดขวา
+                    let diff = e.changedTouches[0].clientX - startX;
+                    if (diff < -30) move('L'); if (diff > 30) move('R');
                 }});
 
-                // --- ฟังก์ชันส่งคะแนนกลับ Streamlit ---
                 function parentSubmit() {{
                     const s = Math.floor(score);
                     const p = new URLSearchParams(window.parent.location.search);
@@ -680,53 +662,45 @@ elif st.session_state.page == 'bonus_game':
         </html>
         """
         import streamlit.components.v1 as components
-        # ปรับ height ให้พอดีกับเกมแนวตั้ง (480px + เผื่อขอบ)
-        components.html(game_html, height=500) 
+        components.html(game_html, height=520)
 
-        # --- 3. ระบบรับแต้มจาก URL และประมวลผลกาชา (เหมือนเดิม) ---
+        # --- 3. ระบบรับแต้มจาก URL ---
         if "score" in st.query_params:
             try:
                 raw_score = int(st.query_params["score"])
-                st.write(f"---")
-                st.success(f"🏁 จบเกม! ทำได้: {raw_score} แต้ม")
-                
+                st.write("---")
+                st.success(f"🏁 บันทึกคะแนนล่าสุด: {raw_score} แต้ม")
                 spins = raw_score // 500
                 
-                if st.button(f"🎰 กดเพื่อเริ่มการสุ่มรางวัล ({spins} ครั้ง)", type="primary", use_container_width=True):
+                if st.button(f"🎰 กดสุ่มรางวัล ({spins} ครั้ง)", type="primary", use_container_width=True):
                     if spins > 0:
                         pool, weights = [5, 10, 20, 50, 100], [40, 35, 15, 7, 3]
                         res = [random.choices(pool, weights=weights, k=1)[0] for _ in range(spins)]
                         total_win = sum(res)
                         
-                        # อัปเดต DB
-                        new_exp = (u.get('total_exp', 0)) + total_win
                         supabase.table("users").update({
-                            "total_exp": new_exp,
+                            "total_exp": (u.get('total_exp', 0)) + total_win,
                             "daily_played_count": daily_played + 1
                         }).eq("username", u['username']).execute()
                         
-                        st.session_state.user['total_exp'] = new_exp
+                        st.session_state.user['total_exp'] = (u.get('total_exp', 0)) + total_win
                         st.session_state.user['daily_played_count'] = daily_played + 1
                         
-                        # เคลียร์ URL
                         st.query_params.clear()
-                        st.query_params["u"] = u['username']
-                        st.query_params["page"] = "bonus_game"
-                        
+                        st.query_params["u"], st.query_params["page"] = u['username'], "bonus_game"
                         st.balloons()
-                        st.success(f"🎉 ได้รับรวม +{total_win} EXP")
+                        st.success(f"🎉 รับรวม +{total_win} EXP")
                         time.sleep(2)
                         st.rerun()
                     else:
-                        st.warning("แต้มไม่ถึง 500 สุ่มไม่ได้นะจ๊ะ")
+                        st.warning("แต้มไม่ถึง 500 สุ่มไม่ได้นะจ๊ะ ฝึกใหม่น้า!")
                         st.query_params.clear()
-                        st.query_params["u"] = u['username']
-                        st.query_params["page"] = "bonus_game"
+                        st.query_params["u"], st.query_params["page"] = u['username'], "bonus_game"
                         st.rerun()
-            except Exception as e:
-                st.error("ระบบประมวลผลแต้มขัดข้อง")
+            except:
+                st.error("ระบบประมวลผลขัดข้อง")
     else:
-        st.warning("🚫 โควตาวันนี้หมดแล้ว! ส่งงานเพิ่มเพื่อเล่นต่อ (1 งาน = 3 สิทธิ์)")
+        st.warning("🚫 โควตาวันนี้หมดแล้ว! ส่งงานเพิ่มเพื่อรับสิทธิ์นะ (1 งาน = 3 สิทธิ์)")
 
     if st.button("⬅️ กลับหน้าหลัก", use_container_width=True):
         st.session_state.page = 'game'
