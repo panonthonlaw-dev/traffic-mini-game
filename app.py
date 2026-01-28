@@ -639,31 +639,38 @@ elif st.session_state.page == 'bonus_game':
             if key in st.session_state: del st.session_state[key]
         st.session_state.page = 'game'
         st.rerun()
-# 👗 หน้าแต่งตัว (Dressing Room) - ฉบับ Pixel Perfect
+# 👗 หน้าแต่งตัว (Dressing Room) - Pixel Perfect Alignment
 # =========================================================
 elif st.session_state.page == 'dressing_room':
     u = st.session_state.user
     user_exp = u.get('total_exp', 0)
     level = (user_exp // 500) + 1
 
-    # --- 🆕 ฉีด CSS บังคับขนาดปุ่มด้านล่างให้เท่ากันเป๊ะ ---
+    # --- 🆕 1. ฉีด CSS แบบเจาะจงเพื่อบังคับปุ่ม บันทึก & ย้อนกลับ ให้เท่ากัน ---
     st.markdown("""
         <style>
-            /* บังคับความสูงและตัวอักษรของปุ่มในหน้าแต่งตัว */
-            .stButton > button {
-                height: 45px !important;
-                padding-top: 0px !important;
-                padding-bottom: 0px !important;
-                line-height: 45px !important;
-                font-size: 16px !important;
+            /* บังคับปุ่มในคอลัมน์ล่างสุดให้สูงและกว้างเท่ากันเป๊ะ */
+            div[data-testid="stHorizontalBlock"] .stButton > button {
                 width: 100% !important;
+                height: 50px !important;  /* บังคับความสูง 50px */
+                padding: 0px !important;
+                margin: 0px !important;
+                box-sizing: border-box !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                border-radius: 10px !important;
+            }
+            /* ปรับแต่งเส้นขอบของปุ่มปกติให้หนาเท่าปุ่ม Primary */
+            div[data-testid="stHorizontalBlock"] .stButton > button[kind="secondary"] {
+                border: 1px solid #ddd !important;
             }
         </style>
     """, unsafe_allow_html=True)
     
     st.markdown("<h2 style='text-align: center; color: #1877f2;'>👕 ตู้เสื้อผ้านักบิด</h2>", unsafe_allow_html=True)
     
-    # 1. ข้อมูลตัวละคร
+    # ส่วนแสดงเลเวล
     st.markdown(f"""
         <div style='text-align: center; background: #f0f2f6; padding: 10px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #ddd;'>
             <span style='color: #555;'>Level {level}</span> | <span style='color: #1877f2; font-weight:bold;'>{user_exp} EXP</span>
@@ -678,7 +685,7 @@ elif st.session_state.page == 'dressing_room':
     
     st.markdown(f"""
         <div style="background: white; padding: 25px; border-radius: 20px; text-align: center; border: 2px solid #1877f2; margin-bottom: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-            <div style="position: relative; display: inline-block; font-size: 90px;">
+            <div style="position: relative; display: inline-block; font-size: 85px;">
                 👤
                 <div style="
                     position: absolute; 
@@ -692,7 +699,7 @@ elif st.session_state.page == 'dressing_room':
                     <div style="background: rgba(255,255,255,0.4); width: 70%; height: 8px; margin: 6px auto; border-radius: 5px;"></div>
                 </div>
             </div>
-            <p style="margin-top:10px; font-weight:bold; color:#1877f2;">กำลังลองใส่</p>
+            <p style="margin-top:10px; font-weight:bold; color:#1877f2;">ชุดที่กำลังลอง</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -711,12 +718,14 @@ elif st.session_state.page == 'dressing_room':
 
     st.subheader("🛍️ เลือกหมวกจากตู้")
 
-    # 4. แสดงตู้ไอเทม (3 คอลัมน์)
+    # 4. แสดงผลตู้ไอเทม (3 ใบต่อแถว)
     for i in range(0, len(items), 3):
         cols = st.columns(3)
         for j, item in enumerate(items[i:i+3]):
             with cols[j]:
                 is_locked = level < item['lv']
+                
+                # กราฟิกจำลองในตู้
                 img_h_style = "border-radius: 50% 50% 20% 20%; height: 35px;" if item['type'] == 'full' else "border-radius: 50% 50% 0 0; height: 25px;"
                 bg_box = "#ffffff" if not is_locked else "#f5f5f5"
                 filter_lock = "filter: grayscale(100%); opacity: 0.4;" if is_locked else ""
@@ -745,11 +754,12 @@ elif st.session_state.page == 'dressing_room':
 
     st.write("---")
     
-    # --- 5. ปุ่มแอ็กชันด้านล่าง (Pixel Perfect Match) ---
+    # --- 5. ปุ่มแอ็กชัน (Pixel Perfect Match) ---
     col_save, col_back = st.columns(2)
     
     with col_save:
-        if st.button("💾 บันทึกชุดนี้", type="primary", use_container_width=True):
+        # ใช้ Key พิเศษเพื่อให้ CSS จับได้ง่าย
+        if st.button("💾 บันทึก", type="primary", key="btn_save_outfit", use_container_width=True):
             try:
                 supabase.table("users").update({
                     "helmet_color": st.session_state.temp_color,
@@ -758,8 +768,9 @@ elif st.session_state.page == 'dressing_room':
                 
                 st.session_state.user['helmet_color'] = st.session_state.temp_color
                 st.session_state.user['helmet_type'] = st.session_state.temp_type
-                st.success("✨ เรียบร้อย!")
+                st.success("บันทึกสำเร็จ!")
                 time.sleep(1)
+                # ล้างค่า temp ก่อนกลับ
                 for k in ['temp_color', 'temp_type']:
                     if k in st.session_state: del st.session_state[k]
                 go_to('game')
@@ -767,7 +778,8 @@ elif st.session_state.page == 'dressing_room':
                 st.error(f"Error: {e}")
                 
     with col_back:
-        if st.button("⬅️ ย้อนกลับ", use_container_width=True):
+        if st.button("⬅️ ย้อนกลับ", key="btn_back_outfit", use_container_width=True):
+            # ล้างค่าชั่วคราวทิ้งและกลับ
             for k in ['temp_color', 'temp_type']:
                 if k in st.session_state: del st.session_state[k]
             go_to('game')
