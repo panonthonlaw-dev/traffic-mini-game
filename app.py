@@ -208,10 +208,16 @@ elif st.session_state.page == 'forgot':
 # 🎮 หน้ากิจกรรม (Player)
 # =========================================================
 elif st.session_state.page == 'game':
+    # --- 👮 1. ด่านตรวจสิทธิ์ (Security Guard) ---
     if st.session_state.user is None: 
         go_to('login')
-        
-    # --- 1. Sync ข้อมูลล่าสุด (เพื่อให้ชุดแต่งตัวและ EXP อัปเดต) ---
+    
+    # ถ้า Admin หลงเข้ามาหน้านี้ ให้ดีดกลับไปหน้าแอดมินทันที
+    if st.session_state.user.get('role') == 'admin':
+        st.session_state.page = 'admin_dashboard'
+        st.rerun()
+
+    # --- 2. Sync ข้อมูลล่าสุด (EXP และชุดแต่งตัว) ---
     try:
         u_res = supabase.table("users").select("*").eq("username", st.session_state.user['username']).single().execute()
         if u_res.data:
@@ -221,12 +227,12 @@ elif st.session_state.page == 'game':
 
     u = st.session_state.user 
 
-    # --- 2. หน้าเมนูหลัก (แสดงเมื่อยังไม่ได้เลือกภารกิจ) ---
+    # --- 3. หน้าเมนูหลัก (Home Page) ---
     if st.session_state.selected_mission is None:
         total_exp = u.get('total_exp', 0)
         level = (total_exp // 500) + 1
         
-        # ดึงค่าสี (ถ้าไม่มีให้ใช้ค่า Default)
+        # ดึงค่าสีไอเทม
         h_color = u.get('helmet_color', '#31333F')
         h_type = u.get('helmet_type', 'half')
         s_color = u.get('shirt_color', '#FFFFFF')
@@ -240,7 +246,7 @@ elif st.session_state.page == 'game':
         elif total_exp <= 999: rank, progress = "Guardian", (total_exp - 600) / 399
         else: rank, progress = "Legendary", 1.0
 
-        # --- ส่วนแสดงโปรไฟล์ (Clean Style: ไม่มีกรอบ) ---
+        # --- ส่วนแสดงโปรไฟล์ (Clean Style: ไม่มีกรอบล้อมรอบ) ---
         col_avatar, col_details = st.columns([0.4, 0.6])
         
         with col_avatar:
@@ -273,56 +279,58 @@ elif st.session_state.page == 'game':
 
         col_play, col_dress = st.columns(2)
         with col_play:
-            if st.button("🎮 เล่นมินิเกม", use_container_width=True):
+            if st.button("🎮 เล่นมินิเกม", use_container_width=True, key="play_btn"):
                 st.session_state.page = 'bonus_game'; st.rerun()
         with col_dress:
-            if st.button("👕 แต่งตัวละคร", use_container_width=True):
+            if st.button("👕 แต่งตัวละคร", use_container_width=True, key="dress_btn"):
                 st.session_state.page = 'dressing_room'; st.rerun()
 
         st.write("---")
 
-        # --- 3. รายการภารกิจ (รวมเหลือชุดเดียวและป้องกัน Key ซ้ำ) ---
+        # --- 4. รายการภารกิจ (แก้บั๊ก Duplicate Key) ---
         try:
             missions = supabase.table("missions").select("*").eq("is_active", True).execute().data
             today = datetime.now().strftime("%Y-%m-%d")
             subs = supabase.table("submissions").select("*").eq("user_username", u['username']).gte("created_at", today).execute().data
             done_dict = {s['mission_id']: s for s in subs}
 
-            for m in missions:
-                m_sub = done_dict.get(m['id'])
-                is_done = m['id'] in done_dict
-                c1, c2 = st.columns([0.7, 0.3])
-                with c1:
-                    # ใส่ Key ให้ Unique ด้วยชื่อหน้าและ ID ภารกิจ
-                    if st.button(f"📍 {m['title']}", key=f"home_mission_{m['id']}"):
-                        st.session_state.selected_mission = m['id']
-                        st.rerun()
-                with c2:
-                    if m_sub and m_sub.get('status') == 'approved':
-                        color, text = "#42b72a", f"+{m_sub['points']} EXP"
-                    elif is_done:
-                        color, text = "#f39c12", "รอตรวจ"
-                    else:
-                        color, text = "#888", "⭕ ยังไม่ส่ง"
-                    st.markdown(f"<div style='color:{color}; font-weight:bold; padding-top:10px;'>{text}</div>", unsafe_allow_html=True)
+            if missions:
+                for m in missions:
+                    m_sub = done_dict.get(m['id'])
+                    is_done = m['id'] in done_dict
+                    c1, c2 = st.columns([0.7, 0.3])
+                    with c1:
+                        if st.button(f"📍 {m['title']}", key=f"mission_card_{m['id']}"):
+                            st.session_state.selected_mission = m['id']
+                            st.rerun()
+                    with c2:
+                        if m_sub and m_sub.get('status') == 'approved':
+                            color, text = "#42b72a", f"+{m_sub['points']}"
+                        elif is_done:
+                            color, text = "#f39c12", "รอตรวจ"
+                        else:
+                            color, text = "#888", "⭕ ยังไม่ส่ง"
+                        st.markdown(f"<div style='color:{color}; font-weight:bold; padding-top:10px; text-align:right;'>{text}</div>", unsafe_allow_html=True)
+            else:
+                st.info("ไม่มีภารกิจในขณะนี้")
         except:
-            st.error("ไม่สามารถโหลดภารกิจได้")
+            st.error("โหลดภารกิจล้มเหลว")
 
-    # --- 4. หน้าทำภารกิจ (เมื่อเลือกภารกิจแล้ว) ---
+    # --- 5. หน้าทำภารกิจ ---
     else:
         m_id = st.session_state.selected_mission
         m_data = supabase.table("missions").select("*").eq("id", m_id).single().execute().data
         
         st.markdown(f"## {m_data['title']}")
-        if st.button("⬅️ ย้อนกลับ", key="back_to_menu"): 
+        if st.button("⬅️ ย้อนกลับ", key="back_from_mission"): 
             st.session_state.selected_mission = None; st.rerun()
         
         st.info(f"💡 {m_data.get('description', 'ถ่ายรูปเพื่อยืนยันภารกิจ')}")
         
-        f = st.file_uploader("📸 แนบรูปถ่ายหลักฐาน", type=['jpg','png','jpeg'], key="mission_upload")
+        f = st.file_uploader("📸 แนบรูปถ่ายหลักฐาน", type=['jpg','png','jpeg'], key="uploader_mission")
         
         if f:
-            if st.button("🚀 ยืนยันส่งภารกิจ", type="primary", use_container_width=True):
+            if st.button("🚀 ยืนยันส่งภารกิจ", type="primary", use_container_width=True, key="submit_mission_final"):
                 with st.spinner("กำลังส่งภารกิจ..."):
                     try:
                         import requests, base64
@@ -338,11 +346,8 @@ elif st.session_state.page == 'game':
 
                         if result.get('status') == 'success':
                             supabase.table("submissions").insert({
-                                "user_username": u['username'],
-                                "mission_id": m_id,
-                                "status": "pending",
-                                "points": 0,
-                                "image_url": result['fileId']
+                                "user_username": u['username'], "mission_id": m_id,
+                                "status": "pending", "points": 0, "image_url": result['fileId']
                             }).execute()
                             st.success("🎉 ส่งงานเรียบร้อย!")
                             time.sleep(1.5)
@@ -350,11 +355,11 @@ elif st.session_state.page == 'game':
                         else:
                             st.error(f"Google Error: {result.get('message')}")
                     except Exception as e:
-                        st.error(f"ระบบส่งงานขัดข้อง: {e}")
+                        st.error(f"ระบบขัดข้อง: {e}")
 
-    # --- 5. ปุ่มออกจากระบบ (อยู่ท้ายสุดของหน้า game) ---
+    # --- 6. ปุ่มออกจากระบบ ---
     st.write("---")
-    if st.button("🚪 ออกจากระบบ", use_container_width=True, key="logout_btn"):
+    if st.button("🚪 ออกจากระบบ", use_container_width=True, key="logout_main"):
         st.session_state.user = None
         st.query_params.clear() 
         st.session_state.page = 'login'
