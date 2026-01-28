@@ -231,12 +231,46 @@ elif st.session_state.page == 'game':
         else:
             rank, progress = "Legendary", 1.0
 
-        # --- 3. แสดงผล Header (Rank ซ้าย | Username ขวา) ---
-        c_t, c_u = st.columns([0.6, 0.4])
-        with c_t:
-            st.markdown(f"### Rank {rank}")
-        with c_u:
-            st.markdown(f"<p style='text-align: right; margin-top: 10px;'>ยินดีตอนรับนักผจญภัย <b>{u['username']}</b></p>", unsafe_allow_html=True)
+       # --- 3. คำนวณ Level และดึงข้อมูลแต่งตัว ---
+        level = (total_exp // 500) + 1
+        h_color = u.get('helmet_color', '#31333F') # สีหมวกที่บันทึกไว้
+        h_type = u.get('helmet_type', 'half')      # ทรงหมวกที่บันทึกไว้
+        
+        # กำหนดความสูงหมวกตามทรง
+        h_style = "border-radius: 50% 50% 20% 20%; height: 45px;" if h_type == 'full' else "border-radius: 50% 50% 0 0; height: 30px;"
+
+        # --- 4. แสดงผล Avatar และ ข้อมูลผู้เล่น ---
+        col_char, col_info = st.columns([0.35, 0.65])
+        
+        with col_char:
+            # วาดตัวละครในวงกลมสีขาว
+            st.markdown(f"""
+                <div style="background: white; padding: 10px; border-radius: 50%; width: 90px; height: 90px; text-align: center; border: 3px solid #1877f2; margin: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    <div style="position: relative; display: inline-block; font-size: 55px; margin-top: 5px;">
+                        👤
+                        <div style="
+                            position: absolute; 
+                            top: -3px; left: 50%; transform: translateX(-50%);
+                            background: {h_color}; 
+                            width: 45px; 
+                            {h_style}
+                            border: 2px solid #333;
+                            z-index: 10;
+                        ">
+                            <div style="background: rgba(255,255,255,0.3); width: 70%; height: 5px; margin: 3px auto; border-radius: 3px;"></div>
+                        </div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+
+        with col_info:
+            st.markdown(f"<h3 style='margin-bottom:0;'>{u['fullname']}</h3>", unsafe_allow_html=True)
+            st.markdown(f"<p style='color:#666;'>Rank: <b>{rank}</b> | Level: <b>{level}</b></p>", unsafe_allow_html=True)
+        
+        # --- 5. แสดงแถบ EXP และเส้นคั่น (ต่อจากของเดิม) ---
+        st.write(f"EXP รวม: {total_exp}")
+        st.progress(min(progress, 1.0))
+        st.write("---")
         
         # --- 4. แสดงแถบ EXP และเส้นคั่น ---
         st.write(f"EXP รวม: {total_exp}")
