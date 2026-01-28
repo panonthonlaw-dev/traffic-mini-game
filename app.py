@@ -639,27 +639,41 @@ elif st.session_state.page == 'bonus_game':
             if key in st.session_state: del st.session_state[key]
         st.session_state.page = 'game'
         st.rerun()
-# 👗 หน้าแต่งตัว (Dressing Room) - Full Code
+# 👗 หน้าแต่งตัว (Dressing Room) - ฉบับ Pixel Perfect
 # =========================================================
 elif st.session_state.page == 'dressing_room':
     u = st.session_state.user
     user_exp = u.get('total_exp', 0)
     level = (user_exp // 500) + 1
+
+    # --- 🆕 ฉีด CSS บังคับขนาดปุ่มด้านล่างให้เท่ากันเป๊ะ ---
+    st.markdown("""
+        <style>
+            /* บังคับความสูงและตัวอักษรของปุ่มในหน้าแต่งตัว */
+            .stButton > button {
+                height: 45px !important;
+                padding-top: 0px !important;
+                padding-bottom: 0px !important;
+                line-height: 45px !important;
+                font-size: 16px !important;
+                width: 100% !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
     
-    # 1. หัวข้อและสถานะตัวละคร
     st.markdown("<h2 style='text-align: center; color: #1877f2;'>👕 ตู้เสื้อผ้านักบิด</h2>", unsafe_allow_html=True)
     
+    # 1. ข้อมูลตัวละคร
     st.markdown(f"""
         <div style='text-align: center; background: #f0f2f6; padding: 10px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #ddd;'>
             <span style='color: #555;'>Level {level}</span> | <span style='color: #1877f2; font-weight:bold;'>{user_exp} EXP</span>
         </div>
     """, unsafe_allow_html=True)
 
-    # 2. ระบบ Preview ตัวละคร (แสดงผลแบบเรียลไทม์ขณะลองชุด)
+    # 2. Preview ตัวละคร
     if 'temp_color' not in st.session_state: st.session_state.temp_color = u.get('helmet_color', '#31333F')
     if 'temp_type' not in st.session_state: st.session_state.temp_type = u.get('helmet_type', 'half')
 
-    # กำหนดทรงหมวก (Full vs Half)
     h_style = "border-radius: 50% 50% 20% 20%; height: 50px;" if st.session_state.temp_type == 'full' else "border-radius: 50% 50% 0 0; height: 35px;"
     
     st.markdown(f"""
@@ -678,11 +692,11 @@ elif st.session_state.page == 'dressing_room':
                     <div style="background: rgba(255,255,255,0.4); width: 70%; height: 8px; margin: 6px auto; border-radius: 5px;"></div>
                 </div>
             </div>
-            <p style="margin-top:10px; font-weight:bold; color:#1877f2;">สไตล์ที่คุณกำลังลองใส่</p>
+            <p style="margin-top:10px; font-weight:bold; color:#1877f2;">กำลังลองใส่</p>
         </div>
     """, unsafe_allow_html=True)
 
-    # 3. รายการไอเทมหมวกในตู้ (ตั้งค่า Level ที่ต้องใช้ปลดล็อค)
+    # 3. รายการไอเทม
     items = [
         {"id": 1, "name": "Classic Red", "type": "half", "color": "#FF4B4B", "lv": 1},
         {"id": 2, "name": "Night Black", "type": "half", "color": "#31333F", "lv": 1},
@@ -697,14 +711,12 @@ elif st.session_state.page == 'dressing_room':
 
     st.subheader("🛍️ เลือกหมวกจากตู้")
 
-    # 4. แสดงผลตู้ไอเทม (Grid 3x3)
+    # 4. แสดงตู้ไอเทม (3 คอลัมน์)
     for i in range(0, len(items), 3):
         cols = st.columns(3)
         for j, item in enumerate(items[i:i+3]):
             with cols[j]:
                 is_locked = level < item['lv']
-                
-                # กราฟิกจำลองในกล่องไอเทม
                 img_h_style = "border-radius: 50% 50% 20% 20%; height: 35px;" if item['type'] == 'full' else "border-radius: 50% 50% 0 0; height: 25px;"
                 bg_box = "#ffffff" if not is_locked else "#f5f5f5"
                 filter_lock = "filter: grayscale(100%); opacity: 0.4;" if is_locked else ""
@@ -723,37 +735,31 @@ elif st.session_state.page == 'dressing_room':
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # ปุ่มกดเลือก
                 if is_locked:
                     st.button(f"🔒 Lv.{item['lv']}", key=f"lk_{item['id']}", disabled=True, use_container_width=True)
                 else:
-                    if st.button("เลือกใช้", key=f"sel_{item['id']}", use_container_width=True):
+                    if st.button("เลือก", key=f"sel_{item['id']}", use_container_width=True):
                         st.session_state.temp_color = item['color']
                         st.session_state.temp_type = item['type']
                         st.rerun()
 
     st.write("---")
     
-    # 5. ปุ่มแอ็กชันด้านล่าง (ขนาดเท่ากัน 50/50)
+    # --- 5. ปุ่มแอ็กชันด้านล่าง (Pixel Perfect Match) ---
     col_save, col_back = st.columns(2)
     
     with col_save:
         if st.button("💾 บันทึกชุดนี้", type="primary", use_container_width=True):
             try:
-                # บันทึกสู่ฐานข้อมูล
                 supabase.table("users").update({
                     "helmet_color": st.session_state.temp_color,
                     "helmet_type": st.session_state.temp_type
                 }).eq("username", u['username']).execute()
                 
-                # อัปเดตข้อมูลใน Session ของแอป
                 st.session_state.user['helmet_color'] = st.session_state.temp_color
                 st.session_state.user['helmet_type'] = st.session_state.temp_type
-                
-                st.success("✨ เปลี่ยนลุคเรียบร้อย!")
+                st.success("✨ เรียบร้อย!")
                 time.sleep(1)
-                
-                # ล้างตัวแปรชั่วคราวและกลับหน้าหลัก
                 for k in ['temp_color', 'temp_type']:
                     if k in st.session_state: del st.session_state[k]
                 go_to('game')
@@ -761,7 +767,6 @@ elif st.session_state.page == 'dressing_room':
                 st.error(f"Error: {e}")
                 
     with col_back:
-        # ปุ่มย้อนกลับ (คืนค่าเดิมและออกจากหน้า)
         if st.button("⬅️ ย้อนกลับ", use_container_width=True):
             for k in ['temp_color', 'temp_type']:
                 if k in st.session_state: del st.session_state[k]
