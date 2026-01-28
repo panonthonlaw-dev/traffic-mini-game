@@ -527,56 +527,103 @@ elif st.session_state.page == 'admin_dashboard':
         st.query_params.clear()
         go_to('login')# =========================================================
 # =========================================================
-# 🎮 หน้า BONUS GAME: เกมเปิดป้ายผู้โชคดี (Native Streamlit)
+# 🎮 หน้า BONUS GAME: เกมเปิดป้าย (สิทธิ์ x3 และระบบรางวัลแบบยาก)
 # =========================================================
 elif st.session_state.page == 'bonus_game':
     u = st.session_state.user
-    st.markdown("<h2 style='text-align: center;'>🪖 เกมเปิดป้ายล่าแต้ม EXP</h2>", unsafe_allow_html=True)
-    st.write("กติกา: เลือกเปิดป้ายได้ 3 ใบ เพื่อลุ้นรับ EXP พิเศษ!")
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    
+    # --- 1. ตรวจสอบโควตา (ส่ง 1 งานวันนี้ = เล่นได้ 3 ครั้ง) ---
+    try:
+        m_res = supabase.table("submissions").select("id", count="exact")\
+            .eq("user_username", u['username'])\
+            .gte("created_at", today_str).execute()
+        m_today = m_res.count if m_res.count else 0
+        
+        # ตรวจสอบเพื่อรีเซ็ตยอดเล่นรายวัน
+        if str(u.get('last_game_date')) != today_str:
+            daily_played = 0
+            supabase.table("users").update({"daily_played_count": 0, "last_game_date": today_str}).eq("username", u['username']).execute()
+            st.session_state.user['daily_played_count'] = 0
+        else:
+            daily_played = u.get('daily_played_count', 0)
+            
+        max_quota = m_today * 3
+        available_quota = max_quota - daily_played
+    except:
+        max_quota, daily_played, available_quota = 0, 0, 0
 
-    # --- 1. เตรียมข้อมูลเกม (จัดเก็บใน Session State เพื่อให้ค่าไม่หายเวลาคลิก) ---
-    if 'tiles' not in st.session_state:
-        # สุ่มรางวัลซ่อนไว้หลังป้าย 9 ใบ
-        rewards = [10, 20, 5, 100, 10, 5, 50, 5, 20] # แต้ม EXP ต่างๆ
-        random.shuffle(rewards)
-        st.session_state.tiles = rewards
-        st.session_state.opened = [] # เก็บว่าเปิดใบไหนไปแล้วบ้าง
-        st.session_state.total_win = 0
+    st.markdown("<h2 style='text-align: center; color:#1877f2;'>🪖 เกมเปิดป้ายลุ้น EXP x3</h2>", unsafe_allow_html=True)
+    
+    # ส่วนแสดงโควตา
+    st.markdown(f"""
+        <div style='background: white; padding: 15px; border-radius: 15px; border: 2px solid #1877f2; text-align: center; margin-bottom: 20px;'>
+            <p style='margin:0; color:#666;'>สิทธิ์การเล่นวันนี้ (เหลือ {max(0, available_quota)} / {max_quota} ครั้ง)</p>
+            <h2 style='margin:0; color:#1877f2;'>🎟️ {max(0, available_quota)} ใบ</h2>
+            <small>ส่งงานวันนี้ {m_today} ชิ้น (1 งาน = 3 สิทธิ์)</small>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # --- 2. แสดงผลตารางป้าย 3x3 ---
-    cols = st.columns(3)
-    for i in range(9):
-        with cols[i % 3]:
-            # ถ้าป้ายนี้ถูกเปิดไปแล้ว
-            if i in st.session_state.opened:
-                st.button(f"💰 {st.session_state.tiles[i]} EXP", key=f"tile_{i}", disabled=True, use_container_width=True)
-            else:
-                # ถ้ายังไม่ได้เปิด และยังเปิดไม่ครบ 3 ใบ
-                if len(st.session_state.opened) < 3:
-                    if st.button("❓", key=f"tile_{i}", use_container_width=True):
-                        # --- จังหวะบันทึกคะแนน (ตรงนี้แหละครับที่ชัวร์ 100%) ---
-                        win_amount = st.session_state.tiles[i]
-                        st.session_state.opened.append(i)
-                        st.session_state.total_win += win_amount
-                        
-                        # บันทึกคะแนนลง Supabase ทันทีที่กด!
-                        new_exp = (u.get('total_exp', 0)) + win_amount
-                        supabase.table("users").update({"total_exp": new_exp}).eq("username", u['username']).execute()
-                        st.session_state.user['total_exp'] = new_exp
-                        
-                        st.toast(f"ยินดีด้วย! ได้รับ {win_amount} EXP", icon="🎉")
-                        st.rerun()
+    if available_quota > 0:
+        # --- 2. เตรียมข้อมูลป้าย (อัตราสุ่มของยาก) ---
+        if 'tiles' not in st.session_state:
+            # รางวัลปกติ 8 ใบ
+            pool = [5, 5, 5, 10, 10, 10, 20, 20] 
+            # รางวัลใหญ่ 1 ใบ (สุ่มว่าจะเป็น 50 หรือ 100 โดยให้ 100 ออกยากมาก)
+            rare_item = random.choices([50, 100], weights=[90, 10], k=1)[0]
+            
+            final_tiles = pool + [rare_item]
+            random.shuffle(final_tiles)
+            
+            st.session_state.tiles = final_tiles
+            st.session_state.opened = []
+            st.session_state.round_win = 0
+
+        # --- 3. แสดงตารางป้าย 3x3 ---
+        cols = st.columns(3)
+        for i in range(9):
+            with cols[i % 3]:
+                if i in st.session_state.opened:
+                    st.button(f"✨ {st.session_state.tiles[i]}", key=f"t_{i}", disabled=True, use_container_width=True)
                 else:
-                    st.button("🔒", key=f"tile_{i}", disabled=True, use_container_width=True)
+                    if len(st.session_state.opened) < 3: # เปิดได้ 3 ใบต่อรอบ
+                        if st.button("❓", key=f"t_{i}", use_container_width=True):
+                            win_amount = st.session_state.tiles[i]
+                            
+                            # อัปเดต Database ทันที
+                            new_total_exp = (u.get('total_exp', 0)) + win_amount
+                            supabase.table("users").update({"total_exp": new_total_exp}).eq("username", u['username']).execute()
+                            
+                            # อัปเดต Session ให้หน้าจอเปลี่ยน
+                            st.session_state.user['total_exp'] = new_total_exp
+                            st.session_state.opened.append(i)
+                            st.session_state.round_win += win_amount
+                            st.toast(f"ได้รับ +{win_amount} EXP!", icon="🎉")
+                            time.sleep(0.5)
+                            st.rerun()
+                    else:
+                        st.button("🔒", key=f"t_{i}", disabled=True, use_container_width=True)
 
-    # --- 3. สรุปผล ---
-    if len(st.session_state.opened) >= 3:
-        st.success(f"🎊 คุณเปิดครบ 3 ใบแล้ว! รับ EXP รวมทั้งหมด: {st.session_state.total_win}")
-        if st.button("🔄 เล่นใหม่อีกครั้ง (ใช้สิทธิ์เล่นต่อ)", use_container_width=True):
+        # --- 4. เมื่อเล่นจบรอบ ---
+        if len(st.session_state.opened) >= 3:
+            st.success(f"🎊 จบรอบ! ได้รับรวม {st.session_state.round_win} EXP")
+            if st.button("🏁 ยืนยันจบเกมและหักสิทธิ์เล่น", type="primary", use_container_width=True):
+                # หักสิทธิ์เล่นจริงตอนกดปุ่มนี้
+                new_played = daily_played + 1
+                supabase.table("users").update({"daily_played_count": new_played}).eq("username", u['username']).execute()
+                st.session_state.user['daily_played_count'] = new_played
+                
+                # ล้างค่าเพื่อเริ่มใหม่
+                del st.session_state.tiles
+                del st.session_state.opened
+                del st.session_state.round_win
+                st.rerun()
+    else:
+        st.warning("🚫 วันนี้คุณใช้สิทธิ์เล่นครบแล้ว! ส่งงานเพิ่มเพื่อรับสิทธิ์ใหม่ (1 งาน = 3 สิทธิ์)")
+
+    if st.button("⬅️ กลับหน้าหลัก", use_container_width=True):
+        if 'tiles' in st.session_state:
             del st.session_state.tiles
-            st.rerun()
-
-    if st.button("⬅️ กลับหน้าหลัก"):
         st.session_state.page = 'game'
         st.rerun()
 # 👗 หน้าแต่งตัว (Dressing Room) - วางล่างสุดของไฟล์
