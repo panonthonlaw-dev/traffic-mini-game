@@ -205,12 +205,13 @@ elif st.session_state.page == 'forgot':
                 else: st.error("❌ ข้อมูลไม่ถูกต้อง")
         if st.button("ยกเลิก", use_container_width=True, type="secondary"): go_to('login')
 
-# 🎮 หน้ากิจกรรม (Player)
+# 🎮 หน้ากิจกรรม (Player) - ฉบับแสดงผลชุดเต็ม
+# =========================================================
 elif st.session_state.page == 'game':
     if st.session_state.user is None: 
         go_to('login')
         
-    # --- 🆕 1. ดึงข้อมูลล่าสุดจากตาราง users (เพื่อให้ EXP หน้าแรกตรงกับหน้าแต่งตัว) ---
+    # --- 🆕 1. ดึงข้อมูลล่าสุดจากตาราง users (ให้ค่า เสื้อ/รองเท้า/รถ อัปเดตเสมอ) ---
     try:
         u_res = supabase.table("users").select("*").eq("username", st.session_state.user['username']).single().execute()
         if u_res.data:
@@ -220,78 +221,68 @@ elif st.session_state.page == 'game':
 
     u = st.session_state.user 
 
-    # --- 2. แยกหน้าจอระหว่าง "หน้าเมนูหลัก" กับ "หน้าทำภารกิจ" ---
     if st.session_state.selected_mission is None:
-        # --- [ ส่วนหน้าหลัก ] ---
+        # --- 2. เตรียมข้อมูลแสดงผล ---
         total_exp = u.get('total_exp', 0)
-
-        # คำนวณ Rank
-        if total_exp <= 100:
-            rank, progress = "Beginner", total_exp / 100
-        elif total_exp <= 300:
-            rank, progress = "Pro", (total_exp - 100) / 200
-        elif total_exp <= 600:
-            rank, progress = "Expert", (total_exp - 300) / 300
-        elif total_exp <= 999:
-            rank, progress = "Guardian", (total_exp - 600) / 399
-        else:
-            rank, progress = "Legendary", 1.0
-
-        # คำนวณ Level และสไตล์หมวก (แก้จุดที่เคยมี Indentation Error ตรงนี้ครับ)
         level = (total_exp // 500) + 1
+        
+        # ดึงสีไอเทมต่างๆ
         h_color = u.get('helmet_color', '#31333F')
         h_type = u.get('helmet_type', 'half')
-        h_style = "border-radius: 50% 50% 20% 20%; height: 40px;" if h_type == 'full' else "border-radius: 50% 50% 0 0; height: 28px;"
+        s_color = u.get('shirt_color', '#FFFFFF')
+        f_color = u.get('shoes_color', '#333333')
+        b_color = u.get('bike_color', '#1877f2')
 
-        # --- 4. แสดงผล Header แบบ Compact (ชิดซ้ายและเป็นระเบียบ) ---
-        # ปรับสัดส่วน Column ให้ Avatar เล็กลงและชิดซ้ายมากขึ้น
-        col_avatar, col_details = st.columns([0.25, 0.75])
+        # คำนวณ Rank
+        if total_exp <= 100: rank, progress = "Beginner", total_exp / 100
+        elif total_exp <= 300: rank, progress = "Pro", (total_exp - 100) / 200
+        elif total_exp <= 600: rank, progress = "Expert", (total_exp - 300) / 300
+        elif total_exp <= 999: rank, progress = "Guardian", (total_exp - 600) / 399
+        else: rank, progress = "Legendary", 1.0
+
+        # --- 3. แสดงผล Profile Header (ชุดเต็มพร้อมรถ) ---
+        col_avatar, col_details = st.columns([0.4, 0.6]) # ปรับขนาดให้รูปใหญ่ขึ้นหน่อย
         
         with col_avatar:
-            # Avatar ชิดซ้ายในวงกลม
+            h_style = "border-radius: 50% 50% 20% 20%; height: 28px;" if h_type == 'full' else "border-radius: 50% 50% 0 0; height: 18px;"
             st.markdown(f"""
-                <div style="background: white; padding: 5px; border-radius: 50%; width: 75px; height: 75px; text-align: center; border: 2px solid #1877f2; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);">
-                    <div style="position: relative; display: inline-block; font-size: 45px; margin-top: 5px;">
-                        👤
-                        <div style="
-                            position: absolute; 
-                            top: -2px; left: 50%; transform: translateX(-50%);
-                            background: {h_color}; 
-                            width: 38px; 
-                            {h_style}
-                            border: 2px solid #333;
-                            z-index: 10;
-                        ">
-                            <div style="background: rgba(255,255,255,0.3); width: 70%; height: 4px; margin: 3px auto; border-radius: 2px;"></div>
+                <div style="background: white; padding: 10px; border-radius: 20px; text-align: center; border: 2px solid #1877f2; box-shadow: 2px 2px 10px rgba(0,0,0,0.1);">
+                    <div style="display: flex; justify-content: center; align-items: flex-end; gap: 5px;">
+                        <div style="position: relative; font-size: 45px;">
+                            👤
+                            <div style="position: absolute; top: -2px; left: 50%; transform: translateX(-50%); background: {h_color}; width: 36px; {h_style} border: 1.5px solid #333; z-index: 10;"></div>
+                            <div style="position: absolute; top: 28px; left: 50%; transform: translateX(-50%); background: {s_color}; width: 24px; height: 16px; border: 1.5px solid #333; border-radius: 3px; z-index: 5;"></div>
+                            <div style="position: absolute; bottom: 6px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px;">
+                                <div style="background: {f_color}; width: 8px; height: 4px; border: 1px solid #333; border-radius: 1px;"></div>
+                                <div style="background: {f_color}; width: 8px; height: 4px; border: 1px solid #333; border-radius: 1px;"></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 40px; position: relative;">
+                            🏍️
+                            <div style="position: absolute; bottom: 8px; left: 10%; width: 80%; height: 5px; background: {b_color}; border-radius: 5px; z-index: -1; filter: blur(1px);"></div>
                         </div>
                     </div>
                 </div>
             """, unsafe_allow_html=True)
 
         with col_details:
-            # ข้อมูลชื่อและ Rank จัดวางแบบบรรทัดชิดกัน
             st.markdown(f"""
-                <div style='margin-top: -5px;'>
-                    <h3 style='margin: 0; color: #003366;'>{u['fullname']}</h3>
-                    <p style='margin: 0; color: #666; font-size: 14px;'>🎖️ <b>{rank}</b> | Level {level}</p>
+                <div style='margin-top: 0px;'>
+                    <h3 style='margin: 0; color: #003366; font-size: 18px;'>{u['fullname']}</h3>
+                    <p style='margin: 0; color: #666; font-size: 13px;'>🎖️ <b>{rank}</b> | Level {level}</p>
+                    <p style='margin: 0; font-size: 14px;'>🔥 {total_exp} EXP</p>
                 </div>
             """, unsafe_allow_html=True)
-            
-            # ย้ายแถบ EXP มาไว้ในคอลัมน์นี้ด้วย เพื่อให้มันอยู่ชิดกับข้อมูลด้านบน
-            st.write(f"🔥 {total_exp} EXP")
             st.progress(min(progress, 1.0))
 
-        st.write("---") # เส้นคั่นก่อนเริ่มปุ่มเมนู
-        
+        st.write("---") 
 
-        # สร้าง 2 คอลัมน์เพื่อให้ปุ่มวางคู่กันครับ
+        # --- 4. ปุ่มเมนูหลัก ---
         col_play, col_dress = st.columns(2)
-
         with col_play:
             if st.button("🎮 เล่นมินิเกม", use_container_width=True):
                 st.session_state.page = 'bonus_game'
                 st.rerun()
-
         with col_dress:
             if st.button("👕 แต่งตัวละคร", use_container_width=True):
                 st.session_state.page = 'dressing_room'
@@ -299,6 +290,33 @@ elif st.session_state.page == 'game':
 
         st.write("---")
 
+        # --- 5. รายการภารกิจ ---
+        try:
+            missions = supabase.table("missions").select("*").eq("is_active", True).execute().data
+            today = datetime.now().strftime("%Y-%m-%d")
+            subs = supabase.table("submissions").select("*").eq("user_username", u['username']).gte("created_at", today).execute().data
+            done_dict = {s['mission_id']: s for s in subs}
+
+            for m in missions:
+                m_sub = done_dict.get(m['id'])
+                is_done = m['id'] in done_dict
+                c1, c2 = st.columns([0.7, 0.3])
+                with c1:
+                    st.markdown('<div class="thin-btn-green">', unsafe_allow_html=True)
+                    if st.button(f"📍 {m['title']}", key=f"m_btn_{m['id']}"):
+                        st.session_state.selected_mission = m['id']
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+                with c2:
+                    if m_sub and m_sub.get('status') == 'approved':
+                        color, text = "#42b72a", f"✅ +{m_sub['points']}"
+                    elif is_done:
+                        color, text = "#42b72a", "✅ รอตรวจ"
+                    else:
+                        color, text = "#888", "⭕ ยังไม่ส่ง"
+                    st.markdown(f'<div class="status-right" style="color:{color};">{text}</div>', unsafe_allow_html=True)
+        except:
+            st.error("โหลดข้อมูลภารกิจไม่สำเร็จ")
         # --- 5. รายการภารกิจ (เริ่มดึงข้อมูลต่อจากนี้) ---
         missions = supabase.table("missions").select("*").eq("is_active", True).execute().data
         today = datetime.now().strftime("%Y-%m-%d")
