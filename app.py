@@ -527,55 +527,64 @@ elif st.session_state.page == 'admin_dashboard':
         st.query_params.clear()
         go_to('login')# =========================================================
 # =========================================================
-# 🎮 หน้า BONUS GAME: แข่งขันทำคะแนน Leaderboard (เล่นได้ไม่จำกัด)
+# 🎮 หน้า BONUS GAME: ระบบ Leaderboard (แก้ไขจุดที่บันทึกไม่ได้)
 # =========================================================
 elif st.session_state.page == 'bonus_game':
     u = st.session_state.user
     
-    st.markdown("<h2 style='text-align: center; color:#1877f2;'>🏆 Leaderboard: นักบิดประจำสัปดาห์</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color:#666;'>เล่นได้ไม่จำกัด! คะแนนสูงสุด 3 อันดับแรกรับ EXP พิเศษทุกวันจันทร์</p>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color:#1877f2;'>🏆 Moto Leaderboard</h2>", unsafe_allow_html=True)
 
-    # --- 🆕 1. ระบบดักจับคะแนนและบันทึกลง Leaderboard ---
-    if "score" in st.query_params:
+    # --- 🆕 1. ระบบตรวจจับและบันทึกคะแนน (ทำงานอันดับแรก) ---
+    # ดึงค่าจาก st.query_params (รองรับ Streamlit เวอร์ชันใหม่)
+    q_params = st.query_params
+    if "score" in q_params:
         try:
-            final_score = int(st.query_params["score"])
-            # ล้างพารามิเตอร์ score ออกจาก URL
+            final_score = int(q_params["score"])
+            
+            # ล้างค่า score ออกจาก URL เพื่อป้องกันการบันทึกซ้ำเมื่อกด Refresh
+            # แต่ต้องเก็บ u และ page ไว้เพื่อให้ระบบทำงานต่อได้
             st.query_params.clear()
             st.query_params["u"] = u['username']
             st.query_params["page"] = "bonus_game"
 
-            # บันทึกคะแนนลงตาราง leaderboard
-            supabase.table("leaderboard").insert({
+            # บันทึกคะแนนลง Supabase
+            # เพิ่มสถานะการบันทึกเพื่อตรวจสอบ
+            data_to_insert = {
                 "username": u['username'],
                 "score": final_score
-            }).execute()
+            }
             
-            st.toast(f"✅ บันทึกคะแนน {final_score} แต้มเรียบร้อย!", icon="🔥")
-            time.sleep(1)
+            res = supabase.table("leaderboard").insert(data_to_insert).execute()
+            
+            # ถ้าบันทึกสำเร็จ
+            st.balloons()
+            st.success(f"✅ บันทึกคะแนน {final_score} แต้ม ลงฐานข้อมูลสำเร็จ!")
+            time.sleep(2)
             st.rerun()
-        except:
-            pass
+            
+        except Exception as e:
+            st.error(f"❌ บันทึกคะแนนไม่ได้: {str(e)}")
+            st.info("คำแนะนำ: ตรวจสอบว่าตาราง 'leaderboard' ใน Supabase ปิด RLS หรือยัง?")
 
-    # --- 📊 2. ส่วนแสดงตารางอันดับ (Top 5 ประจำสัปดาห์) ---
-    with st.expander("🥇 ดูอันดับนักบิดสูงสุดตอนนี้", expanded=False):
+    # --- 📊 2. แสดงตารางอันดับ Top 10 ---
+    with st.expander("🥇 ดูอันดับนักบิดสูงสุด", expanded=True):
         try:
-            # ดึงข้อมูลคะแนนสูงสุดของแต่ละคน (Top 5)
-            # หมายเหตุ: ในแอปจริงพี่อาจจะกรองวันที่ (created_at) ให้เป็นของสัปดาห์นี้
             lb_res = supabase.table("leaderboard")\
                 .select("username, score")\
                 .order("score", desc=True)\
-                .limit(5).execute()
+                .limit(10).execute()
             
             if lb_res.data:
                 df_lb = pd.DataFrame(lb_res.data)
-                df_lb.index = df_lb.index + 1 # เริ่มอันดับที่ 1
+                df_lb.columns = ['ชื่อผู้ใช้', 'คะแนนสูงสุด']
+                df_lb.index = df_lb.index + 1
                 st.table(df_lb)
             else:
-                st.write("ยังไม่มีข้อมูลการแข่งขันในสัปดาห์นี้")
+                st.caption("ยังไม่มีข้อมูลคะแนนในระบบ")
         except:
-            st.write("ไม่สามารถดึงข้อมูลตารางอันดับได้")
+            st.warning("ดึงข้อมูลตารางอันดับไม่ได้")
 
-    # --- 🏍️ 3. ตัวเกมแนวตั้ง (เล่นได้เรื่อยๆ ไม่หักโควตา) ---
+    # --- 🏍️ 3. ตัวเกมแนวตั้ง (เล่นได้ไม่จำกัด) ---
     game_html = f"""
     <!DOCTYPE html>
     <html>
@@ -587,7 +596,7 @@ elif st.session_state.page == 'bonus_game':
             #game-container {{ position: relative; width: 300px; height: 420px; background: #333; border: 3px solid #1877f2; border-radius: 15px; overflow: hidden; }}
             canvas {{ display: block; width: 100%; height: 100%; }}
             #ui-score {{ position: absolute; top: 10px; left: 10px; color: white; font-size: 22px; font-weight: bold; text-shadow: 2px 2px black; }}
-            #msg {{ display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 15px; text-align: center; border: 3px solid #1877f2; width: 70%; z-index: 100; }}
+            #msg {{ display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 15px; text-align: center; border: 3px solid #1877f2; width: 70%; z-index: 100; box-shadow: 0 0 20px rgba(0,0,0,0.5); }}
         </style>
     </head>
     <body>
@@ -595,8 +604,8 @@ elif st.session_state.page == 'bonus_game':
             <div id="ui-score">0</div>
             <canvas id="gameCanvas" width="300" height="420"></canvas>
             <div id="msg">
-                <h2 style="color:#1877f2; margin:0;">🏁 จบเกม!</h2>
-                <p style="margin:10px 0; font-weight:bold;">กำลังบันทึกคะแนนลงตารางอันดับ...</p>
+                <h2 style="color:#1877f2; margin:0;">🏁 เกมจบ!</h2>
+                <p style="margin:10px 0; font-weight:bold;">กำลังบันทึกคะแนน...</p>
             </div>
         </div>
         <script>
@@ -612,19 +621,17 @@ elif st.session_state.page == 'bonus_game':
                 frame++; score += 0.2; speed += 0.002;
                 ctx.font = "40px Arial"; ctx.textAlign = "center";
                 ctx.fillText("🏍️", lanes[currentLane], playerY);
-                
                 if (frame % Math.floor(90 - speed*2) === 0) {{
                     let t = Math.random() > 0.85 ? '🪖' : '🕳️';
                     items.push({{ x: lanes[Math.floor(Math.random()*3)], y: -50, t: t }});
                 }}
-
                 items.forEach((it, i) => {{
                     it.y += speed; ctx.font = "35px Arial"; ctx.fillText(it.t, it.x, it.y);
                     if (lanes.indexOf(it.x) === currentLane && it.y > playerY-35 && it.y < playerY+15) {{
                         if (it.t === '🕳️') {{ 
                             isGameOver = true; 
                             document.getElementById('msg').style.display = 'block';
-                            setTimeout(autoSubmit, 1500); 
+                            setTimeout(forceSubmit, 1000); 
                         }} else {{ score += 100; items.splice(i, 1); }}
                     }}
                     if (it.y > 450) items.splice(i, 1);
@@ -633,11 +640,13 @@ elif st.session_state.page == 'bonus_game':
                 if (!isGameOver) requestAnimationFrame(animate);
             }}
 
-            function autoSubmit() {{
+            // 🆕 ฟังก์ชันส่งคะแนนแบบบังคับ Refresh (เจาะจง URL)
+            function forceSubmit() {{
                 const finalS = Math.floor(score);
+                // ใช้ window.top เพื่อเข้าถึงหน้าเว็บหลักของ Streamlit
                 const url = new URL(window.top.location.href);
                 url.searchParams.set('score', finalS);
-                window.top.location.search = url.searchParams.toString();
+                window.top.location.href = url.href; // บังคับเปลี่ยน URL หน้าหลัก
             }}
 
             function move(d) {{ if (d === 'L' && currentLane > 0) currentLane--; if (d === 'R' && currentLane < 2) currentLane++; }}
