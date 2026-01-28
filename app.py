@@ -705,69 +705,61 @@ elif st.session_state.page == 'bonus_game':
             st.rerun()
 
 # =========================================================
-# 🎮 หน้า BONUS GAME: ระบบวิ่งสู้ฟัด + ตู้สุ่ม Gacha (Show Always)
+# 🎮 หน้า BONUS GAME: ระบบ Gacha และ มินิเกม (ฉบับหาเจอง่าย 100%)
 # =========================================================
 elif st.session_state.page == 'bonus_game':
     u = st.session_state.user
-    st.markdown("<h2 style='text-align: center; color:#1877f2;'>🏃‍♂️ Traffic Runner & Gacha</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color:#1877f2;'>🎰 ตู้สุ่มรางวัล EXP นักบิด</h2>", unsafe_allow_html=True)
 
-    # --- 1. คำนวณสิทธิ์ (ตั๋ว) ---
+    # --- 1. ส่วนเช็กสิทธิ์ (ตั๋วเข้าเล่น) ---
     try:
+        # นับจำนวนงานที่ส่งแล้ว
         m_res = supabase.table("submissions").select("id", count="exact").eq("user_username", u['username']).execute()
         mission_count = m_res.count if m_res.count else 0
+        # ครั้งที่เคยสุ่มไปแล้ว
         played_count = u.get('game_played_count', 0)
         available_tickets = mission_count - played_count
     except:
         mission_count, played_count, available_tickets = 0, 0, 0
 
-    # แสดงตั๋วที่มี (โชว์ด้านบนสุด)
-    st.info(f"🎫 **ตั๋วสะสมของคุณ:** {available_tickets} ใบ (ส่งงาน 1 ครั้ง = 1 ใบ)")
+    # --- 2. 🎰 ส่วนของตู้กาชา (วางไว้ข้างบนให้เห็นชัดๆ) ---
+    with st.container():
+        st.markdown(f"""
+            <div style='background: white; padding: 15px; border-radius: 15px; border: 2px solid #1877f2; text-align: center;'>
+                <p style='margin:0; color:#666;'>ตั๋วกาชาคงเหลือ (จากการส่งงาน)</p>
+                <h2 style='margin:0; color:#1877f2;'>🎟️ {max(0, available_tickets)} ใบ</h2>
+            </div>
+        """, unsafe_allow_html=True)
 
-    # --- 2. ตัวมินิเกม ---
-    # (เรียกใช้ตัวแปร game_html ที่พี่มีอยู่แล้ว)
-    import streamlit.components.v1 as components
-    components.html(game_html, height=400) 
+        st.write("")
+        col_input, col_info = st.columns([0.6, 0.4])
+        
+        with col_input:
+            # ช่องกรอกคะแนนที่ทำได้
+            score_achieved = st.number_input("ระบุคะแนนที่ทำได้จากมินิเกม:", min_value=0, step=100, key="manual_score")
+        
+        with col_info:
+            spins_earned = int(score_achieved // 300)
+            st.markdown(f"<div style='text-align:center;'>สิทธิ์สุ่มที่ได้<br><b>{spins_earned} ครั้ง</b></div>", unsafe_allow_html=True)
 
-    st.write("---")
-
-    # --- 3. 🎰 ตู้สุ่มกาชา (จุดที่พี่หาไม่เจอ ผมดึงออกมาให้เห็นชัดๆ แล้วครับ) ---
-    st.subheader("🎁 ตู้สุ่มรางวัลนำโชค")
-    
-    # สร้างคอลัมน์เพื่อให้ดูเป็นสัดส่วน
-    col_input, col_status = st.columns([0.6, 0.4])
-    
-    with col_input:
-        score_val = st.number_input("ระบุคะแนนที่ทำได้จากเกม:", min_value=0, step=100, key="gacha_score")
-        spins = int(score_val // 300) # คำนวณสิทธิ์สุ่ม
-
-    with col_status:
-        if spins > 0:
-            st.markdown(f"<div style='text-align:center; background:#d4edda; padding:10px; border-radius:10px;'>🌟 ได้สิทธิ์สุ่ม<br><h2 style='margin:0; color:#28a745;'>{spins} ครั้ง</h2></div>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div style='text-align:center; background:#fff3cd; padding:10px; border-radius:10px;'>🏃‍♂️ วิ่งต่ออีกนิด<br><h4 style='margin:0; color:#856404;'>ต้องได้ 300 แต้ม</h4></div>", unsafe_allow_html=True)
-
-    # --- 4. ปุ่มสุ่มรางวัล (เช็กเงื่อนไขก่อนกด) ---
-    st.write("") # เว้นวรรคหน่อย
-    
-    if spins > 0:
-        if available_tickets > 0:
-            # ✅ เงื่อนไขครบ: โชว์ปุ่มสีฟ้าสดใส
-            if st.button(f"🎰 กดสุ่มรางวัล {spins} ครั้งเลย!", type="primary", use_container_width=True):
+        # --- ปุ่มสุ่มรางวัล (หัวใจหลัก) ---
+        if spins_earned > 0 and available_tickets > 0:
+            if st.button(f"🎰 กดสุ่มรางวัล {spins_earned} ครั้ง!", type="primary", use_container_width=True):
                 # โอกาสสุ่ม: 5(40%), 10(35%), 20(15%), 50(7%), 100(3%)
                 pool = [5, 10, 20, 50, 100]
                 weights = [40, 35, 15, 7, 3]
                 
                 win_list = []
-                sum_exp = 0
-                for _ in range(spins):
+                total_win = 0
+                for _ in range(spins_earned):
                     res = random.choices(pool, weights=weights, k=1)[0]
                     win_list.append(res)
-                    sum_exp += res
+                    total_win += res
                 
-                # อัปเดต DB
+                # บันทึกข้อมูล
                 try:
-                    new_exp = (u.get('total_exp', 0)) + sum_exp
-                    new_played = played_count + 1 # ใช้ตั๋วไป 1 ใบ
+                    new_exp = (u.get('total_exp', 0)) + total_win
+                    new_played = played_count + 1
                     
                     supabase.table("users").update({
                         "total_exp": new_exp,
@@ -778,20 +770,26 @@ elif st.session_state.page == 'bonus_game':
                     st.session_state.user['game_played_count'] = new_played
                     
                     st.balloons()
-                    st.success(f"🎊 ยินดีด้วย! คุณได้รับ EXP: {' + '.join(map(str, win_list))} (รวม +{sum_exp})")
+                    st.success(f"🎊 ยินดีด้วย! คุณได้รับ EXP: {' + '.join(map(str, win_list))} (รวม +{total_win})")
                     time.sleep(2)
                     st.rerun()
                 except:
-                    st.error("ระบบบันทึกคะแนนขัดข้อง")
+                    st.error("ระบบขัดข้องในการบันทึก")
         else:
-            # 🎫 แต้มถึงแต่ไม่มีตั๋ว
-            st.warning("⚠️ แต้มถึงแล้ว! แต่คุณไม่มี **'ตั๋ว'** กรุณาไปส่งภารกิจเพิ่มก่อนนะจ๊ะ")
-    else:
-        # 🏃‍♂️ แต้มยังไม่ถึง 300
-        st.button("🎰 ปุ่มสุ่มจะปลดล็อกที่ 300 แต้ม", disabled=True, use_container_width=True)
+            # แสดงปุ่มแบบกดไม่ได้ (Disabled) เพื่อให้รู้ว่ามันอยู่ตรงนี้
+            reason = "ต้องมี 300 แต้มขึ้นไป" if spins_earned == 0 else "ตั๋วหมด (ไปส่งงานเพิ่ม)"
+            st.button(f"🎰 {reason}", disabled=True, use_container_width=True)
 
-    # ปุ่มกลับหน้าหลัก
-    if st.button("⬅️ กลับหน้าหลัก", use_container_width=True, key="back_btn"):
+    st.write("---")
+
+    # --- 3. ตัวมินิเกม (วางไว้ข้างล่างกาชา) ---
+    st.markdown("<p style='text-align: center; color:#666;'>🎮 เล่นมินิเกมเพื่อสะสมแต้มมาสุ่มรางวัลด้านบน</p>", unsafe_allow_html=True)
+    import streamlit.components.v1 as components
+    # เรียกใช้ตัวแปร game_html ที่พี่มีอยู่ด้านบน
+    components.html(game_html, height=380)
+
+    # --- ปุ่มกลับหน้าหลัก ---
+    if st.button("⬅️ กลับหน้าหลัก", use_container_width=True):
         st.session_state.page = 'game'
         st.rerun()
 # =========================================================
