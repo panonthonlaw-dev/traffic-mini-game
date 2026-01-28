@@ -585,21 +585,37 @@ elif st.session_state.page == 'bonus_game':
                     # ปรับปุ่มที่เปิดแล้วให้ดูแตกต่าง
                     st.button(f"✨ {st.session_state.tiles[i]}", key=f"btn_{i}", disabled=True, use_container_width=True)
                 else:
+                    # ตรวจสอบว่าเปิดไปเกิน 3 ใบหรือยัง
                     if len(st.session_state.opened) < 3:
                         if st.button("❓", key=f"btn_{i}", use_container_width=True):
-                            # บันทึกคะแนน
+                            # 1. ดึงแต้มที่ซ่อนอยู่หลังป้ายนี้
                             win_val = st.session_state.tiles[i]
-                            st.session_state.opened.append(i)
-                            st.session_state.round_win += win_val # บรรทัดที่มีปัญหา แก้ไขด้วยการเช็ก if ด้านบนแล้ว
                             
-                            # อัปเดต DB และแอป
-                            new_exp = (u.get('total_exp', 0)) + win_val
-                            supabase.table("users").update({"total_exp": new_exp}).eq("username", u['username']).execute()
-                            st.session_state.user['total_exp'] = new_exp
+                            # 2. คำนวณ EXP ใหม่ (เอาของเดิมใน Session มาบวกเพิ่ม)
+                            current_exp = st.session_state.user.get('total_exp', 0)
+                            new_exp = current_exp + win_val
                             
-                            st.toast(f"ได้รับ +{win_val} EXP!")
-                            time.sleep(0.5)
-                            st.rerun()
+                            try:
+                                # 3. อัปเดตลงฐานข้อมูล Supabase (บันทึกถาวร)
+                                supabase.table("users").update({"total_exp": new_exp}).eq("username", u['username']).execute()
+                                
+                                # 4. อัปเดต Session State ในแอป (เพื่อให้หน้าแรกและหน้าแต่งตัวเห็นเลขใหม่ทันที)
+                                st.session_state.user['total_exp'] = new_exp
+                                
+                                # 5. บันทึกประวัติในรอบการเล่นนี้
+                                st.session_state.opened.append(i)
+                                st.session_state.round_win += win_val
+                                
+                                # 6. แจ้งเตือนความสำเร็จ
+                                st.toast(f"🎉 ยินดีด้วย! ได้รับ +{win_val} EXP", icon="⭐")
+                                time.sleep(0.5)
+                                st.rerun()
+                                
+                            except Exception as e:
+                                st.error(f"🚨 เกิดข้อผิดพลาดในการบันทึกคะแนน: {e}")
+                    else:
+                        # ถ้าเปิดครบ 3 ใบแล้ว ให้โชว์แม่กุญแจล็อคไว้
+                        st.button("🔒", key=f"btn_{i}", disabled=True, use_container_width=True)
                     else:
                         st.button("🔒", key=f"btn_{i}", disabled=True, use_container_width=True)
 
