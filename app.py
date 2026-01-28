@@ -527,7 +527,7 @@ elif st.session_state.page == 'admin_dashboard':
         st.query_params.clear()
         go_to('login')# =========================================================
 # =========================================================
-# 🎮 หน้า BONUS GAME: มอไซค์แนวตั้ง + ระบบสุ่มรางวัล (Version ชัวร์ 100%)
+# 🎮 หน้า BONUS GAME: มอไซค์แนวตั้ง + ระบบส่งคะแนนอัตโนมัติ (Anti-Cheat)
 # =========================================================
 elif st.session_state.page == 'bonus_game':
     u = st.session_state.user
@@ -539,11 +539,12 @@ elif st.session_state.page == 'bonus_game':
             .eq("user_username", u['username'])\
             .gte("created_at", today_str).execute().count
         
-        # เช็ครีเซ็ตวันใหม่
+        # รีเซ็ตยอดเล่นเมื่อขึ้นวันใหม่
         if str(u.get('last_game_date')) != today_str:
             daily_played = 0
             supabase.table("users").update({"daily_played_count": 0, "last_game_date": today_str}).eq("username", u['username']).execute()
             st.session_state.user['daily_played_count'] = 0
+            st.session_state.user['last_game_date'] = today_str
         else:
             daily_played = u.get('daily_played_count', 0)
             
@@ -552,79 +553,79 @@ elif st.session_state.page == 'bonus_game':
     except:
         max_quota, daily_played, available_quota = 0, 0, 0
 
-    st.markdown("<h2 style='text-align: center; color:#1877f2;'>🏍️ Moto Rider Gacha</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color:#1877f2;'>🏍️ Moto Rider: ระบบสุ่มอัตโนมัติ</h2>", unsafe_allow_html=True)
 
-    # --- 2. ส่วนของตู้สุ่มรางวัล (Gacha UI) ---
-    st.markdown(f"""
-        <div style='background: white; padding: 15px; border-radius: 15px; border: 2px solid #1877f2; text-align: center; margin-bottom: 10px;'>
-            <p style='margin:0; color:#666;'>โควตาสุ่มวันนี้ (เหลือ {max(0, available_quota)} / {max_quota} ครั้ง)</p>
-            <small>ส่งงานวันนี้ {m_today} ชิ้น (1 งานได้เล่น 3 ครั้ง)</small>
-        </div>
-    """, unsafe_allow_html=True)
+    # --- 🆕 2. ระบบดักจับคะแนนอัตโนมัติ (Python Logic) ---
+    # ดึงคะแนนจาก URL พารามิเตอร์ที่ JavaScript ส่งมา
+    get_score = st.query_params.get("score")
+    
+    if get_score:
+        score_val = int(get_score)
+        # 🛡️ ระบบป้องกันการโกง: ล้าง URL ทันทีหลังดึงค่าเสร็จ
+        st.query_params.clear()
+        st.query_params["u"] = u['username']
+        st.query_params["page"] = "bonus_game"
 
-    # --- 🆕 ส่วนรับคะแนนเพื่อสุ่มรางวัล ---
-    if available_quota > 0:
-        with st.expander("🎰 กดที่นี่เพื่อกรอกคะแนนรับรางวัล", expanded=True):
-            col_in, col_btn = st.columns([0.6, 0.4])
-            with col_in:
-                input_score = st.number_input("กรอกคะแนนที่ทำได้จากเกม:", min_value=0, step=100, key="manual_game_score")
+        if available_quota > 0:
+            spins = score_val // 500 # 🆕 ทุก 500 แต้ม = 1 สิทธิ์
             
-            with col_btn:
-                st.write("")
-                if st.button("🎰 สุ่มรางวัล!", type="primary", use_container_width=True):
-                    spins = input_score // 500 # 🆕 ทุก 500 แต้ม = 1 สิทธิ์
-                    if spins > 0:
-                        # อัตราสุ่ม: 5(40%), 10(35%), 20(15%), 50(7%), 100(3%)
-                        pool, weights = [5, 10, 20, 50, 100], [40, 35, 15, 7, 3]
-                        res = [random.choices(pool, weights=weights, k=1)[0] for _ in range(spins)]
-                        total_win = sum(res)
-                        
-                        # อัปเดตข้อมูล
-                        new_exp = (u.get('total_exp', 0)) + total_win
-                        supabase.table("users").update({
-                            "total_exp": new_exp,
-                            "daily_played_count": daily_played + 1
-                        }).eq("username", u['username']).execute()
-                        
-                        st.session_state.user['total_exp'] = new_exp
-                        st.session_state.user['daily_played_count'] = daily_played + 1
-                        
-                        st.balloons()
-                        st.success(f"🎊 ยินดีด้วย! ได้รับรวม +{total_win} EXP")
-                        time.sleep(2)
-                        st.rerun()
-                    else:
-                        st.error("คะแนนต้องถึง 500 ถึงจะสุ่มได้ครับ!")
+            if spins > 0:
+                # ทำการสุ่มกาชาทันที
+                pool, weights = [5, 10, 20, 50, 100], [40, 35, 15, 7, 3]
+                results = [random.choices(pool, weights=weights, k=1)[0] for _ in range(spins)]
+                total_win = sum(results)
+                
+                # บันทึกคะแนนและหักโควตา
+                new_exp = (u.get('total_exp', 0)) + total_win
+                new_played = daily_played + 1
+                
+                supabase.table("users").update({
+                    "total_exp": new_exp,
+                    "daily_played_count": new_played
+                }).eq("username", u['username']).execute()
+                
+                # อัปเดตข้อมูลในระบบ
+                st.session_state.user['total_exp'] = new_exp
+                st.session_state.user['daily_played_count'] = new_played
+                
+                st.balloons()
+                st.success(f"🎊 ยอดเยี่ยม! ทำได้ {score_val} แต้ม ได้สิทธิ์สุ่ม {spins} ครั้ง รับไปเลย +{total_win} EXP")
+                time.sleep(3)
+                st.rerun()
+            else:
+                st.warning(f"🏃‍♂️ ทำได้ {score_val} แต้ม (ต้องได้ 500 แต้มขึ้นไปถึงจะสุ่มรางวัลได้)")
+        else:
+            st.error("🚫 โควตาวันนี้หมดแล้ว! ต้องส่งภารกิจเพิ่มเพื่อรับสิทธิ์")
 
-    st.write("---")
+    # --- 3. ส่วนการแสดงผลแอป ---
+    st.info(f"🎫 โควตาวันนี้: {daily_played}/{max_quota} (เหลือ {max(0, available_quota)} ครั้ง)")
 
-    # --- 3. ตัวมินิเกม (Subway Style แนวตั้ง) ---
     if available_quota > 0:
-        st.markdown("<p style='text-align: center; color:#666;'>🎮 เล่นจบแล้วเอาคะแนนมาใส่ด้านบนนะ!</p>", unsafe_allow_html=True)
-        game_html = """
+        # --- 4. ตัวเกมแนวตั้ง Subway Style ---
+        game_html = f"""
         <!DOCTYPE html>
         <html>
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
             <style>
-                body { margin: 0; display: flex; flex-direction: column; align-items: center; background: transparent; touch-action: none; font-family: sans-serif; }
-                #game-container { position: relative; width: 300px; height: 400px; background: #333; border: 3px solid #1877f2; border-radius: 15px; overflow: hidden; }
-                canvas { display: block; width: 100%; height: 100%; }
-                #ui { position: absolute; top: 10px; left: 10px; color: white; font-size: 18px; font-weight: bold; text-shadow: 2px 2px black; }
-                #game-over { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 15px; text-align: center; border: 3px solid #d9534f; z-index: 100; width: 80%; }
-                button { padding: 10px; background: #6c757d; color: white; border: none; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; }
+                body {{ margin: 0; display: flex; flex-direction: column; align-items: center; background: transparent; touch-action: none; font-family: sans-serif; }}
+                #game-container {{ position: relative; width: 300px; height: 450px; background: #333; border: 3px solid #1877f2; border-radius: 15px; overflow: hidden; }}
+                canvas {{ display: block; width: 100%; height: 100%; }}
+                #ui-score {{ position: absolute; top: 10px; left: 10px; color: white; font-size: 20px; font-weight: bold; text-shadow: 2px 2px black; }}
+                #game-over {{ display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border-radius: 15px; text-align: center; border: 3px solid #1877f2; z-index: 100; width: 80%; }}
+                button {{ padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; font-size: 16px; }}
             </style>
         </head>
         <body>
             <div id="game-container">
-                <div id="ui">Score: 0</div>
-                <canvas id="gameCanvas" width="300" height="400"></canvas>
+                <div id="ui-score">0</div>
+                <canvas id="gameCanvas" width="300" height="450"></canvas>
                 <div id="game-over">
                     <h2 style="color:#d9534f; margin:0;">💥 ชนหลุม!</h2>
-                    <p id="final-score" style="font-size:22px; font-weight:bold; margin:10px 0;"></p>
-                    <p style="font-size:12px; color:#666;">ก๊อปคะแนนนี้ไปใส่ที่แอปด้านบนนะ</p>
-                    <button onclick="resetGame()">เล่นใหม่อีกครั้ง</button>
+                    <p id="final-display" style="font-size:24px; font-weight:bold; margin:10px 0;"></p>
+                    <button onclick="submitToApp()" style="background:#28a745; color:white;">🎁 ส่งคะแนนรับรางวัล</button>
+                    <button onclick="resetGame()" style="background:#6c757d; color:white;">🔄 เล่นใหม่</button>
                 </div>
             </div>
             <script>
@@ -632,65 +633,69 @@ elif st.session_state.page == 'bonus_game':
                 const ctx = canvas.getContext('2d');
                 let score = 0, isGameOver = false, frame = 0, speed = 4;
                 const lanes = [50, 150, 250];
-                let currentLane = 1, items = [];
+                let currentLane = 1, playerY = 380, items = [];
 
-                function resetGame() {
+                function resetGame() {{
                     score = 0; isGameOver = false; frame = 0; speed = 4; currentLane = 1; items = [];
                     document.getElementById('game-over').style.display = 'none';
                     animate();
-                }
+                }}
 
-                function animate() {
+                function animate() {{
                     if (isGameOver) return;
-                    ctx.clearRect(0, 0, 300, 400);
-                    frame++; score += 0.2; speed += 0.0015;
+                    ctx.clearRect(0, 0, 300, 450);
+                    frame++; score += 0.2; speed += 0.0018; // 🆕 เกมค่อยๆ เร็วขึ้น
 
                     ctx.font = "40px Arial"; ctx.textAlign = "center";
-                    ctx.fillText("🏍️", lanes[currentLane], 350);
+                    ctx.fillText("🏍️", lanes[currentLane], playerY);
 
-                    if (frame % Math.floor(90 - speed*2) === 0) {
-                        let isH = Math.random() > 0.8;
-                        items.push({ x: lanes[Math.floor(Math.random()*3)], y: -50, t: isH ? 'H' : 'P' });
-                    }
+                    if (frame % Math.floor(85 - speed*2) === 0) {{
+                        let t = Math.random() > 0.8 ? 'H' : 'P';
+                        items.push({{ x: lanes[Math.floor(Math.random()*3)], y: -50, t: t }});
+                    }}
 
-                    items.forEach((it, i) => {
+                    items.forEach((it, i) => {{
                         it.y += speed;
                         ctx.font = "35px Arial"; ctx.fillText(it.t === 'P' ? "🕳️" : "🪖", it.x, it.y);
-                        if (lanes.indexOf(it.x) === currentLane && it.y > 320 && it.y < 360) {
+                        if (lanes.indexOf(it.x) === currentLane && it.y > playerY-35 && it.y < playerY+15) {{
                             if (it.t === 'P') isGameOver = true;
-                            else { score += 50; items.splice(i, 1); }
-                        }
-                        if (it.y > 450) items.splice(i, 1);
-                    });
+                            else {{ score += 50; items.splice(i, 1); }}
+                        }}
+                        if (it.y > 500) items.splice(i, 1);
+                    }});
 
-                    document.getElementById('ui').innerHTML = "Score: " + Math.floor(score);
-                    if (isGameOver) {
+                    document.getElementById('ui-score').innerHTML = Math.floor(score);
+                    if (isGameOver) {{
                         document.getElementById('game-over').style.display = 'block';
-                        document.getElementById('final-score').innerHTML = Math.floor(score);
-                    } else requestAnimationFrame(animate);
-                }
+                        document.getElementById('final-display').innerHTML = Math.floor(score) + " แต้ม";
+                    }} else requestAnimationFrame(animate);
+                }}
 
-                window.addEventListener('keydown', e => {
-                    if (e.key === 'ArrowLeft' && currentLane > 0) currentLane--;
-                    if (e.key === 'ArrowRight' && currentLane < 2) currentLane++;
-                });
+                // --- 🆕 ฟังก์ชันส่งคะแนนเข้า Streamlit แบบแม่นยำ ---
+                function submitToApp() {{
+                    const finalS = Math.floor(score);
+                    const p = new URLSearchParams(window.parent.location.search);
+                    // บังคับเปลี่ยน URL ของหน้าหลักเพื่อส่งแต้มให้ Python เห็น
+                    window.parent.location.href = `?u=${{p.get('u')}}&page=bonus_game&score=${{finalS}}`;
+                }}
 
+                // ควบคุมด้วยการปัดหน้าจอ
                 let startX = 0;
                 window.addEventListener('touchstart', e => startX = e.touches[0].clientX);
-                window.addEventListener('touchend', e => {
+                window.addEventListener('touchend', e => {{
                     let diff = e.changedTouches[0].clientX - startX;
                     if (diff < -30 && currentLane > 0) currentLane--;
                     if (diff > 30 && currentLane < 2) currentLane++;
-                });
+                }});
                 animate();
             </script>
         </body>
         </html>
         """
         import streamlit.components.v1 as components
-        components.html(game_html, height=450)
+        components.html(game_html, height=500)
     else:
-        st.warning("🚫 โควตาวันนี้หมดแล้ว! ส่งงานชิ้นใหม่เพื่อรับสิทธิ์เล่นเพิ่ม (1 งาน = 3 สิทธิ์)")
+        st.warning("🚫 โควตาวันนี้หมดแล้ว! ส่งงานเพิ่มเพื่อรับสิทธิ์นะ (1 งาน = 3 ครั้ง)")
 
     if st.button("⬅️ กลับหน้าหลัก", use_container_width=True):
         st.session_state.page = 'game'
