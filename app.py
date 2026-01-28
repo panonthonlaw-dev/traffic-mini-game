@@ -639,131 +639,141 @@ elif st.session_state.page == 'bonus_game':
             if key in st.session_state: del st.session_state[key]
         st.session_state.page = 'game'
         st.rerun()
-# 👗 หน้าแต่งตัว (Dressing Room) - Full Set: Helmet, Shirt, Shoes, Bike
+# 👗 หน้าแต่งตัว (Dressing Room) - Fixed Preview & Full Set
 # =========================================================
 elif st.session_state.page == 'dressing_room':
     u = st.session_state.user
     user_exp = u.get('total_exp', 0)
     level = (user_exp // 500) + 1
 
-    # --- CSS บังคับปุ่มแอ็กชันให้เท่ากันเป๊ะ ---
+    # --- 1. เตรียมตัวแปรชั่วคราว (ถ้าไม่มีให้สร้าง) ---
+    if 'temp_h_color' not in st.session_state: st.session_state.temp_h_color = u.get('helmet_color', '#31333F')
+    if 'temp_h_type' not in st.session_state: st.session_state.temp_h_type = u.get('helmet_type', 'half')
+    if 'temp_s_color' not in st.session_state: st.session_state.temp_s_color = u.get('shirt_color', '#FFFFFF')
+    if 'temp_f_color' not in st.session_state: st.session_state.temp_f_color = u.get('shoes_color', '#333333')
+    if 'temp_b_color' not in st.session_state: st.session_state.temp_b_color = u.get('bike_color', '#1877f2')
+
+    # --- 🆕 ฉีด CSS บังคับปุ่มแอ็กชันด้านล่างให้เท่ากัน ---
     st.markdown("""
         <style>
             div[data-testid="stHorizontalBlock"] .stButton > button {
                 width: 100% !important; height: 50px !important;
-                display: flex !important; align-items: center !important;
-                justify-content: center !important; border-radius: 12px !important;
+                border-radius: 12px !important; font-weight: bold !important;
             }
         </style>
     """, unsafe_allow_html=True)
     
-    st.markdown("<h2 style='text-align: center; color: #1877f2;'>🏁 โรงรถและตู้เสื้อผ้า</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #1877f2;'>🏁 แต่งตัว & ปรับแต่งรถ</h2>", unsafe_allow_html=True)
 
-    # --- 1. เตรียมค่าชั่วคราว (Temp State) ---
-    for key, default in [
-        ('temp_color', u.get('helmet_color', '#31333F')),
-        ('temp_type', u.get('helmet_type', 'half')),
-        ('temp_shirt', u.get('shirt_color', '#FFFFFF')),
-        ('temp_shoes', u.get('shoes_color', '#333333')),
-        ('temp_bike', u.get('bike_color', '#1877f2'))
-    ]:
-        if key not in st.session_state: st.session_state[key] = default
-
-    # --- 2. Compact Preview (แสดงผลครบชุด) ---
-    h_style = "border-radius: 50% 50% 20% 20%; height: 32px;" if st.session_state.temp_type == 'full' else "border-radius: 50% 50% 0 0; height: 22px;"
+    # --- 2. 📺 ส่วน Preview (แสดงผลรวม) ---
+    # คำนวณทรงหมวก
+    h_style = "border-radius: 50% 50% 20% 20%; height: 35px;" if st.session_state.temp_h_type == 'full' else "border-radius: 50% 50% 0 0; height: 25px;"
     
     st.markdown(f"""
-        <div style="background: white; padding: 20px; border-radius: 20px; text-align: center; border: 2px solid #1877f2; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
-            <div style="display: flex; justify-content: center; align-items: flex-end; gap: 10px;">
+        <div style="background: white; padding: 15px; border-radius: 20px; text-align: center; border: 2px solid #1877f2; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: center; align-items: flex-end; gap: 15px;">
                 <div style="position: relative; font-size: 60px;">
                     👤
-                    <div style="position: absolute; top: -3px; left: 50%; transform: translateX(-50%); background: {st.session_state.temp_color}; width: 48px; {h_style} border: 2px solid #333; z-index: 10;"></div>
-                    <div style="position: absolute; top: 40px; left: 50%; transform: translateX(-50%); background: {st.session_state.temp_shirt}; width: 35px; height: 25px; border-radius: 5px; border: 2px solid #333; z-index: 5;"></div>
-                    <div style="position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px;">
-                        <div style="background: {st.session_state.temp_shoes}; width: 12px; height: 6px; border-radius: 2px; border: 1px solid #333;"></div>
-                        <div style="background: {st.session_state.temp_shoes}; width: 12px; height: 6px; border-radius: 2px; border: 1px solid #333;"></div>
+                    <div style="position: absolute; top: -5px; left: 50%; transform: translateX(-50%); background: {st.session_state.temp_h_color}; width: 48px; {h_style} border: 2px solid #333; z-index: 10;"></div>
+                    <div style="position: absolute; top: 38px; left: 50%; transform: translateX(-50%); background: {st.session_state.temp_s_color}; width: 32px; height: 22px; border: 2px solid #333; border-radius: 4px; z-index: 5;"></div>
+                    <div style="position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px;">
+                        <div style="background: {st.session_state.temp_f_color}; width: 12px; height: 6px; border: 1px solid #333; border-radius: 2px;"></div>
+                        <div style="background: {st.session_state.temp_f_color}; width: 12px; height: 6px; border: 1px solid #333; border-radius: 2px;"></div>
                     </div>
                 </div>
-                <div style="font-size: 70px; filter: drop-shadow(2px 2px 0px {st.session_state.temp_bike});">
-                    🏍️
+                <div style="text-align: center;">
+                    <div style="font-size: 65px; position: relative;">
+                        🏍️
+                        <div style="position: absolute; bottom: 10px; left: 10%; width: 80%; height: 8px; background: {st.session_state.temp_b_color}; border-radius: 10px; z-index: -1; filter: blur(1px);"></div>
+                    </div>
                 </div>
             </div>
-            <p style="margin-top:10px; font-weight:bold; color:#1877f2;">Level {level} นักบิดสุดเท่</p>
+            <p style="margin-top:10px; font-size: 14px; font-weight:bold; color:#1877f2;">สไตล์ที่คุณกำลังลองแต่ง</p>
         </div>
     """, unsafe_allow_html=True)
 
-    # --- 3. ระบบเลือกไอเทมแยกหมวด (Tabs) ---
-    tab_h, tab_s, tab_f, tab_b = st.tabs(["🪖 หมวก", "👕 เสื้อ", "👟 รองเท้า", "🏍️ รถ"])
+    # --- 3. 🛍️ ตู้เลือกไอเทมแยกหมวด (Tabs) ---
+    tab1, tab2, tab3, tab4 = st.tabs(["🪖 หมวก", "👕 เสื้อ", "👟 รองเท้า", "🏍️ รถ"])
 
-    # --- ฟังก์ชันวาดตู้ไอเทม ---
-    def draw_closet(item_list, state_key, type_key=None):
+    # ฟังก์ชันช่วยวาดตู้ไอเทม
+    def draw_item_grid(item_list, session_key, type_key=None):
         for i in range(0, len(item_list), 3):
             cols = st.columns(3)
             for j, item in enumerate(item_list[i:i+3]):
                 with cols[j]:
                     is_locked = level < item['lv']
                     bg = "#ffffff" if not is_locked else "#f5f5f5"
-                    op = "1.0" if not is_locked else "0.4"
-                    st.markdown(f"""<div style='background:{bg}; padding:10px; border-radius:10px; text-align:center; border:1px solid #ddd; opacity:{op};'>
-                        <div style='font-size:25px;'>{item['icon']}</div>
-                        <div style='font-size:10px; font-weight:bold;'>{item['name']}</div>
-                    </div>""", unsafe_allow_html=True)
+                    filter_s = "" if not is_locked else "filter: grayscale(100%); opacity: 0.4;"
+                    
+                    st.markdown(f"""
+                        <div style="background: {bg}; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #ddd; {filter_s} height: 80px;">
+                            <div style="font-size: 25px;">{item['icon']}</div>
+                            <div style="font-size: 10px; font-weight: bold;">{item['name']}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
                     if is_locked:
-                        st.button(f"🔒 Lv.{item['lv']}", key=f"lk_{state_key}_{item['name']}", disabled=True, use_container_width=True)
+                        st.button(f"🔒 Lv.{item['lv']}", key=f"l_{session_key}_{item['name']}", disabled=True, use_container_width=True)
                     else:
-                        if st.button("เลือก", key=f"sl_{state_key}_{item['name']}", use_container_width=True):
-                            st.session_state[state_key] = item['color']
+                        if st.button("เลือก", key=f"s_{session_key}_{item['name']}", use_container_width=True):
+                            st.session_state[session_key] = item['color']
                             if type_key: st.session_state[type_key] = item.get('type', 'half')
                             st.rerun()
 
-    with tab_h:
-        draw_closet([
+    with tab1:
+        draw_item_grid([
             {"name": "แดง", "color": "#FF4B4B", "lv": 1, "icon": "🔴", "type": "half"},
             {"name": "ดำ", "color": "#31333F", "lv": 1, "icon": "⚫", "type": "half"},
+            {"name": "เขียว", "color": "#28A745", "lv": 2, "icon": "🟢", "type": "half"},
             {"name": "เต็มใบดำ", "color": "#111111", "lv": 3, "icon": "👺", "type": "full"},
+            {"name": "เต็มใบขาว", "color": "#FFFFFF", "lv": 4, "icon": "⚪", "type": "full"},
             {"name": "ทอง", "color": "#FFD700", "lv": 5, "icon": "👑", "type": "full"},
-        ], 'temp_color', 'temp_type')
+        ], 'temp_h_color', 'temp_h_type')
 
-    with tab_s:
-        draw_closet([
+    with tab2:
+        draw_item_grid([
             {"name": "ขาว", "color": "#FFFFFF", "lv": 1, "icon": "⬜"},
             {"name": "ดำ", "color": "#111111", "lv": 2, "icon": "⬛"},
-            {"name": "หนัง", "color": "#4E342E", "lv": 3, "icon": "🧥"},
+            {"name": "น้ำเงิน", "color": "#0D47A1", "lv": 3, "icon": "🧥"},
             {"name": "สะท้อนแสง", "color": "#CCFF00", "lv": 4, "icon": "🦺"},
-        ], 'temp_shirt')
+        ], 'temp_s_color')
 
-    with tab_f:
-        draw_closet([
-            {"name": "ผ้าใบ", "color": "#333333", "lv": 1, "icon": "👟"},
-            {"name": "น้ำเงิน", "color": "#007BFF", "lv": 2, "icon": "💠"},
-            {"name": "บูทแดง", "color": "#D32F2F", "lv": 4, "icon": "👢"},
-        ], 'temp_shoes')
+    with tab3:
+        draw_item_grid([
+            {"name": "ผ้าใบดำ", "color": "#333333", "lv": 1, "icon": "👟"},
+            {"name": "แดง", "color": "#D32F2F", "lv": 2, "icon": "👠"},
+            {"name": "บูทซิ่ง", "color": "#000000", "lv": 4, "icon": "👢"},
+        ], 'temp_f_color')
 
-    with tab_b:
-        draw_closet([
-            {"name": "ฟ้าน้ำทะเล", "color": "#1877f2", "lv": 1, "icon": "🛵"},
-            {"name": "เหลืองซิ่ง", "color": "#FBC02D", "lv": 3, "icon": "⚡"},
+    with tab4:
+        draw_item_grid([
+            {"name": "ฟ้า", "color": "#1877f2", "lv": 1, "icon": "🛵"},
+            {"name": "แดงซิ่ง", "color": "#FF0000", "lv": 2, "icon": "🚀"},
+            {"name": "เหลือง", "color": "#FFD600", "lv": 3, "icon": "⚡"},
             {"name": "ดำดุ", "color": "#000000", "lv": 5, "icon": "🔥"},
-        ], 'temp_bike')
+        ], 'temp_b_color')
 
     st.write("---")
     
-    # --- 4. ปุ่มแอ็กชัน (ขนาดเท่ากันเป๊ะ) ---
+    # --- 4. 💾 ปุ่มแอ็กชัน (ขนาดเท่ากัน 50/50) ---
     c_save, c_back = st.columns(2)
     with c_save:
         if st.button("💾 บันทึกชุดนี้", type="primary", use_container_width=True):
             try:
                 supabase.table("users").update({
-                    "helmet_color": st.session_state.temp_color,
-                    "helmet_type": st.session_state.temp_type,
-                    "shirt_color": st.session_state.temp_shirt,
-                    "shoes_color": st.session_state.temp_shoes,
-                    "bike_color": st.session_state.temp_bike
+                    "helmet_color": st.session_state.temp_h_color,
+                    "helmet_type": st.session_state.temp_h_type,
+                    "shirt_color": st.session_state.temp_s_color,
+                    "shoes_color": st.session_state.temp_f_color,
+                    "bike_color": st.session_state.temp_b_color
                 }).eq("username", u['username']).execute()
                 
-                # อัปเดต Session หลัก
-                for k in ['helmet_color','helmet_type','shirt_color','shoes_color','bike_color']:
-                    st.session_state.user[k] = st.session_state[f'temp_{k.replace("helmet_","")}'] if "helmet" in k else st.session_state[f'temp_{k.split("_")[0]}']
+                # อัปเดต Session หลักเพื่อให้หน้าอื่นๆ เปลี่ยนตาม
+                st.session_state.user['helmet_color'] = st.session_state.temp_h_color
+                st.session_state.user['helmet_type'] = st.session_state.temp_h_type
+                st.session_state.user['shirt_color'] = st.session_state.temp_s_color
+                st.session_state.user['shoes_color'] = st.session_state.temp_f_color
+                st.session_state.user['bike_color'] = st.session_state.temp_b_color
                 
                 st.success("บันทึกสำเร็จ!")
                 time.sleep(1)
@@ -773,4 +783,7 @@ elif st.session_state.page == 'dressing_room':
                 
     with c_back:
         if st.button("⬅️ ย้อนกลับ", use_container_width=True):
+            # ล้างค่า temp ทิ้ง
+            for k in ['temp_h_color','temp_h_type','temp_s_color','temp_f_color','temp_b_color']:
+                if k in st.session_state: del st.session_state[k]
             go_to('game')
